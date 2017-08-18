@@ -6,7 +6,11 @@
 // License: CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 
-(function(){
+(function() {
+
+function error (f, err) {
+  throw 'OGG Vorbis decode error: '+err;
+}
 
 var buffer_time;
 var player_type_audio;
@@ -14,222 +18,207 @@ var player_type_embed;
 var player_type;
 // JavaScript Document
 
-var _iobuf = function(){
-        this._ptr=char_;//*
-        this._ptr_off=0;//*
-        this._cnt=int_;
-        this._base=char_;//*
-        this._base_off=0;//*
-        this._flag=int_;
-        this._file=int_;
-        this._charbuf=int_;
-        this._bufsiz=int_;
-        this._tmpfname=char_;//*
-        this._tmpfname_off=0;//*
-        };
-var FILE=_iobuf;
+var _iobuf = function() {
+  this._ptr = char_;//*
+  this._ptr_off = 0;//*
+  this._cnt = int_;
+  this._base = char_;//*
+  this._base_off = 0;//*
+  this._flag = int_;
+  this._file = int_;
+  this._charbuf = int_;
+  this._bufsiz = int_;
+  this._tmpfname = char_;//*
+  this._tmpfname_off = 0;//*
+};
+var FILE = _iobuf;
 
-var EOF     = (-1);
+var EOF = (-1);
 
 //FILE * fopen ( const char * filename, const char * mode );
 function fopen ( filename, mode ) {
-	var f = new FILE();
-	f._ptr=filename;
-	return f;
+  var f = new FILE();
+  f._ptr = filename;
+  return f;
 }
 
 //int fgetc ( FILE * stream );
 function fgetc ( stream ) {
-	if(stream._ptr.length<=stream._ptr_off) return EOF;
-	return stream._ptr[stream._ptr_off++];
+  if (stream._ptr.length <= stream._ptr_off) {
+    return EOF;
+  }
+  return stream._ptr[stream._ptr_off++];
 }
 
 //fread
 //size_t fread ( void * ptr, size_t size, size_t count, FILE * stream );
 function fread ( ptr, size, count, stream ) {
-	//ptr.val=new Array();
-	//todo: size include
-	
-	if(stream._ptr.length<count+stream._ptr_off) {stream._ptr_off += count; return EOF; }//0
-	for(var i=0;i<size*count;++i)
-		ptr[i]=(stream._ptr[stream._ptr_off++]);
-	return 1;
+  //ptr.val=new Array();
+  //todo: size include
+
+  if (stream._ptr.length < count + stream._ptr_off) {
+    stream._ptr_off += count;
+    return EOF;//0
+  }
+  for(var i = 0; i < size*count; ++i) {
+    ptr[i] = (stream._ptr[stream._ptr_off++]);
+  }
+  return 1;
 }
 
 /* Seek method constants */
 
-var SEEK_CUR    = 1;
-var SEEK_END    = 2;
-var SEEK_SET    = 0;
+var SEEK_CUR = 1;
+var SEEK_END = 2;
+var SEEK_SET = 0;
 
 
 //int fseek ( FILE * stream, long int offset, int origin );
 function fseek ( stream, offset, origin ) {
-switch (origin) {
-  case SEEK_CUR:
-    
-    break;
-  case SEEK_END:
-    
-    break;
-  case SEEK_SET:
-    stream._ptr_off = offset;
-    break;
-  default:
-    assert(0);
-    break;
-}
+  switch (origin) {
+    case SEEK_CUR:
+      break;
+    case SEEK_END:
+      break;
+    case SEEK_SET:
+      stream._ptr_off = offset;
+      break;
+    default:
+      assert(0);
+      break;
+  }
 }
 
 //ftell
 //long int ftell ( FILE * stream );
-function ftell(stream) {
-	return stream._ptr_off;
+function ftell (stream) {
+  return stream._ptr_off;
 }
 
 //int memcmp ( const void * ptr1, const void * ptr2, size_t num );
 function memcmp ( ptr1, ptr2, num ) {
-	var i;
-	for(i=0;i<num;i++)
-		if(ptr1[i]!=ptr2[i])
-			return 1;
-	return 0;
+  for (var i = 0; i < num; i++) {
+    if (ptr1[i] !== ptr2[i]) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 var char_=0, short_=0, int_=0, long_=0, void_=0;
 
-var int8=char_;
-var uint8=char_;
-var int16=short_;
-var uint16=short_;
-var int32=int_;
-var uint32=int_;
-var uint64=long_;
-var int64=long_;
+var int8 = char_;
+var uint8 = char_;
+var int16 = short_;
+var uint16 = short_;
+var int32 = int_;
+var uint32 = int_;
+var uint64 = long_;
+var int64 = long_;
 
-var float_=0.00;
+var float_ = 0.00;
 
 function memcpy(dst, dst_off, src, src_off, num) {
-	var i;
-	for(i=0;i<num;++i)
-		dst[dst_off + i] = src[src_off + i];
+  for (var i = 0; i < num; ++i) {
+    dst[dst_off + i] = src[src_off + i];
+  }
 }
 
 function memset(ptr, ptr_off, value, num) {
-	var i=0;
-		for(i=0; i<num; ++i) 
-			ptr[ptr_off + i]=value;
+  for (var i = 0; i < num; ++i) {
+    ptr[ptr_off + i]=value;
+  }
 }
 
-function Arr(len,val) {
-	var i;
-	var result = new Array(); for (i = 0; i < len; ++i) result.push(val);
-	return result;
+function Arr(len, val) {
+  return Array(len).fill(val);
+  // var result = Array(len);
+  // for (var i = 0; i < len; ++i) {
+  //   result[i] = val;
+  // }
+  // return result;
 }
 
-function Arr_new(len,val) {
-	var i;
-	var result = new Array(); for (i = 0; i < len; ++i) result.push(new val);
-	return result;
+function Arr_new(len, val) {
+  var result = Array(len);
+  for (var i = 0; i < len; ++i) {
+    result[i] = (new val);
+  }
+  return result;
 }
 
 function assert(bCondition) {
-	if (!bCondition) {
-		throw new Error('assert :P');
-	}
+  if (!bCondition) {
+    throw new Error('assert :P');
+  }
 }
 
 // JavaScript Document
-
-//readfile("");
 
 //10
-// stb_vorbis_decode_filename: decode an entire file to interleaved shorts
-function test_decode_filename(g, filename)
-{
-   var decoded=[short_];//*
-   var channels=[int_], len=int_;
-   len = stb_vorbis_decode_filename(filename, channels, decoded);
-   /*if (len) {//decoded[0].length=1024*1024;//alert('test');
-	   var dataURI = "data:audio/wav;base64,"+escape(btoa(uint8ToString(decoded[0])));
-    var player = document.createElement("embed");
-    player.setAttribute("src", dataURI);
-    player.setAttribute("width", 400);
-    player.setAttribute("height", 100);
-    player.setAttribute("autostart", true);
-    document.getElementById('player-container').appendChild(player);
-   }*/
-//   if (len)
-//      fwrite(decoded, 2, len*channels[0], g);
-//   else
-//      stb_fatal("Couldn't open {%s}", filename);
-}
+// stb_vorbis_decode_filename: decode an entire file to Float32Array
+
 function oggvorbisdata(filename) {
-   buffer_time = document.getElementById('buffer_time').value; //seconds
-   player_type_audio = document.getElementById('player_type_audio');
-   player_type_embed = document.getElementById('player_type_embed');
-   player_type = player_type_audio.checked?"audio":player_type_embed.checked?"embed":"flash";
-   test_decode_filename(null, filename);
+  var v = stb_vorbis_decode_filename(filename);
+  v.buffer = [];
+  for (var ch = 0; ch < v.channels; ch++) {
+    // #1
+    var src = v.data[ch];
+    var dest = new Float32Array(v.samples_output);
+    var len = src.length;
+    for (var i = 0; i < len; i++) {
+      dest[i] = src[i];
+    }
+    v.buffer.push(dest);
+
+    // #2
+    // var offset = 0;
+    // var len = data[ch].length;
+    // for (var i = 0; i < len; i++) {
+    //   v.audiobuf.copyToChannel(data[ch][i], ch, offset);
+    //   offset += data[ch][i].length;
+    // }
+
+    // data[ch].forEach(function(chunk) {
+    //   v.audiobuf.copyToChannel(chunk, ch, offset);
+    //   offset += chunk.length;
+    // });
+  }
+  return v;
 }
+
+function oggaudiobuffer(filename, context) {
+  var v = stb_vorbis_decode_filename(filename);
+  var audiobuffer = context.createBuffer(v.channels, v.samples_output, v.sample_rate);
+  for (var ch = 0; ch < v.channels; ch++) {
+    // #1
+    var src = v.data[ch];
+    var dest = audiobuffer.getChannelData(ch);
+    var len = src.length;
+    for (var i = 0; i < len; i++) {
+      dest[i] = src[i];
+    }
+
+    // #2
+    // var offset = 0;
+    // var len = v.data[ch].length;
+    // for (var i = 0; i < len; i++) {
+    //   audiobuffer.copyToChannel(v.data[ch][i], ch, offset);
+    //   offset += v.data[ch][i].length;
+    // }
+
+    // data[ch].forEach(function(chunk) {
+    //   v.audiobuffer.copyToChannel(chunk, ch, offset);
+    //   offset += chunk.length;
+    // });
+  }
+  v.data = audiobuffer;
+  return v;
+}
+
 window['oggvorbisdata'] = oggvorbisdata;
-function playbackSound(dataURI) {
-    if (player_type=="audio" || player_type=="embed") {
-    var player = document.createElement(player_type);
-    player.setAttribute("src", dataURI);
-    player.setAttribute("width", 400);
-    player.setAttribute("height", 100);
-    player.setAttribute("autostart", true);
-    player.setAttribute("autoplay", true);
-    player.setAttribute("controls", true);
-	} else
-	if (player_type=="flash") {
-	var player = document.createElement("span");//<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=10,0,0,0" width="100" height="50" id="WaveBase64_Player" align="middle">	<param name="allowScriptAccess" value="sameDomain" /><param name="FlashVars" value="base64='+dataURI+'" />	<param name="allowFullScreen" value="false" />	<param name="movie" value="WaveBase64_Player.swf" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />		</object>
-	player.innerHTML ='<embed src="WaveBase64_Player.swf" quality="high" bgcolor="#ffffff" width="100" height="50" name="WaveBase64_Player" FlashVars="base64='+dataURI+'" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.adobe.com/go/getflashplayer_de" />';
-	}
-    document.getElementById('player-container').appendChild(player);
-}
-function uint8ToString(buf) {
-    var i, length, out = '';
-    for (i = 0, length = buf.length; i < length; i += 1) {
-        out += String.fromCharCode(buf[i]);
-    }
-    return out;
-}
+window['oggaudiobuffer'] = oggaudiobuffer;
 
-// Base 64 encoding function, for browsers that do not support btoa()
-// by Tyler Akins (http://rumkin.com), available in the public domain
-    function btoa2(input) {
-        var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-
-        var output = "";
-        var chr1, chr2, chr3;
-        var enc1, enc2, enc3, enc4;
-        var i = 0;
-
-        do {
-            chr1 = input[i++];
-            chr2 = input[i++];
-            chr3 = input[i++];
-
-            enc1 = chr1 >> 2;
-            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-            enc4 = chr3 & 63;
-
-            if (isNaN(chr2)) {
-                enc3 = enc4 = 64;
-            } else if (isNaN(chr3)) {
-                enc4 = 64;
-            }
-
-            output = output + keyStr.charAt(enc1) + keyStr.charAt(enc2) + 
-                     keyStr.charAt(enc3) + keyStr.charAt(enc4);
-        } while (i < input.length);
-
-        return output;
-    }
-	
-// JavaScript Document
 
 //312
 ////////   ERROR CODES
@@ -237,36 +226,36 @@ function uint8ToString(buf) {
 //enum STBVorbisError
 //{
 var 
-   VORBIS__no_error=0,
+   VORBIS__no_error = 0,
 
-   VORBIS_need_more_data=1,             // not a real error
+   VORBIS_need_more_data = 1,             // not a real error
 
-   VORBIS_invalid_api_mixing=2,           // can't mix API modes
-   VORBIS_outofmem=3,                     // not enough memory
-   VORBIS_feature_not_supported=4,        // uses floor 0
-   VORBIS_too_many_channels=5,            // STB_VORBIS_MAX_CHANNELS is too small
-   VORBIS_file_open_failure=6,            // fopen() failed
-   VORBIS_seek_without_length=7,          // can't seek in unknown-length file
+   VORBIS_invalid_api_mixing = 2,           // can't mix API modes
+   VORBIS_outofmem = 3,                     // not enough memory
+   VORBIS_feature_not_supported = 4,        // uses floor 0
+   VORBIS_too_many_channels = 5,            // STB_VORBIS_MAX_CHANNELS is too small
+   VORBIS_file_open_failure = 6,            // fopen() failed
+   VORBIS_seek_without_length = 7,          // can't seek in unknown-length file
 
-   VORBIS_unexpected_eof=10,            // file is truncated?
-   VORBIS_seek_invalid=11,                 // seek past EOF
+   VORBIS_unexpected_eof = 10,            // file is truncated?
+   VORBIS_seek_invalid = 11,                 // seek past EOF
 
    // decoding errors (corrupt/invalid stream) -- you probably
    // don't care about the exact details of these
 
    // vorbis errors:
-   VORBIS_invalid_setup=20,
-   VORBIS_invalid_stream=21,
+   VORBIS_invalid_setup = 20,
+   VORBIS_invalid_stream = 21,
 
    // ogg errors:
-   VORBIS_missing_capture_pattern=30,
-   VORBIS_invalid_stream_structure_version=31,
-   VORBIS_continued_packet_flag_invalid=32,
-   VORBIS_incorrect_stream_serial_number=33,
-   VORBIS_invalid_first_page=34,
-   VORBIS_bad_packet_type=35,
-   VORBIS_cant_find_last_page=36,
-   VORBIS_seek_failed=37
+   VORBIS_missing_capture_pattern = 30,
+   VORBIS_invalid_stream_structure_version = 31,
+   VORBIS_continued_packet_flag_invalid = 32,
+   VORBIS_incorrect_stream_serial_number = 33,
+   VORBIS_invalid_first_page = 34,
+   VORBIS_bad_packet_type = 35,
+   VORBIS_cant_find_last_page = 36,
+   VORBIS_seek_failed = 37
 //}
 ;
 
@@ -281,7 +270,7 @@ var
 //     I forgot to account for. Can probably go as low as 8 (7.1 audio),
 //     6 (5.1 audio), or 2 (stereo only).
 //#ifndef STB_VORBIS_MAX_CHANNELS
-var STB_VORBIS_MAX_CHANNELS    = 16;  // enough for anyone?
+var STB_VORBIS_MAX_CHANNELS = 16;  // enough for anyone?
 //#endif
 
 //403
@@ -298,7 +287,7 @@ var STB_VORBIS_MAX_CHANNELS    = 16;  // enough for anyone?
 //     So don't hose ourselves by scanning an apparent 64KB page and
 //     missing a ton of real ones in the interim; so minimum of 2
 //#ifndef STB_VORBIS_PUSHDATA_CRC_COUNT
-var STB_VORBIS_PUSHDATA_CRC_COUNT  = 4;
+var STB_VORBIS_PUSHDATA_CRC_COUNT = 4;
 //#endif
 
 //419
@@ -308,12 +297,12 @@ var STB_VORBIS_PUSHDATA_CRC_COUNT  = 4;
 //     but the table size is larger so worse cache missing, so you'll have
 //     to probe (and try multiple ogg vorbis files) to find the sweet spot.
 //#ifndef STB_VORBIS_FAST_HUFFMAN_LENGTH
-var STB_VORBIS_FAST_HUFFMAN_LENGTH   = 10;
+var STB_VORBIS_FAST_HUFFMAN_LENGTH = 10;
 //#endif
 
 //571
 //#ifdef STB_VORBIS_CODEBOOK_FLOATS
-var codetype=float_;
+var codetype = float_;
 //#else
 //typedef uint16 codetype;
 //#endif
@@ -331,230 +320,232 @@ var codetype=float_;
 // the sizes larger--nothing relies on silently truncating etc., nor the
 // order of variables.
 
-var FAST_HUFFMAN_TABLE_SIZE   = (1 << STB_VORBIS_FAST_HUFFMAN_LENGTH);
-var FAST_HUFFMAN_TABLE_MASK   = (FAST_HUFFMAN_TABLE_SIZE - 1);
+var FAST_HUFFMAN_TABLE_SIZE = (1 << STB_VORBIS_FAST_HUFFMAN_LENGTH);
+var FAST_HUFFMAN_TABLE_MASK = (FAST_HUFFMAN_TABLE_SIZE - 1);
 
 //593
 var Codebook = function()
 {
-   this.dimensions=int_, this.entries=int_;
-   this.codeword_lengths=uint8;//*
-   this.minimum_value=float_;
-   this.delta_value=float_;
-   this.value_bits=uint8;
-   this.lookup_type=uint8;
-   this.sequence_p=uint8;
-   this.sparse=uint8;
-   this.lookup_values=uint32;
-   this.multiplicands=codetype;//*
-   this.codewords=uint32;//*
-//   #ifdef STB_VORBIS_FAST_HUFFMAN_SHORT
-   this.fast_huffman=new Array(FAST_HUFFMAN_TABLE_SIZE);//int16
-//   #else
-//    int32  fast_huffman[FAST_HUFFMAN_TABLE_SIZE];
-//   #endif
-   this.sorted_codewords=uint32;//*
-   this.sorted_values=int_;//*
-   this.sorted_values_off=0;//*
-   this.sorted_entries=int_;
+  this.dimensions = int_, this.entries = int_;
+  this.codeword_lengths = uint8;//*
+  this.minimum_value = float_;
+  this.delta_value = float_;
+  this.value_bits = uint8;
+  this.lookup_type = uint8;
+  this.sequence_p = uint8;
+  this.sparse = uint8;
+  this.lookup_values = uint32;
+  this.multiplicands = codetype;//*
+  this.codewords = uint32;//*
+//  #ifdef STB_VORBIS_FAST_HUFFMAN_SHORT
+  this.fast_huffman = Array(FAST_HUFFMAN_TABLE_SIZE);//int16
+//  #else
+//   int32  fast_huffman[FAST_HUFFMAN_TABLE_SIZE];
+//  #endif
+  this.sorted_codewords = uint32;//*
+  this.sorted_values = int_;//*
+  this.sorted_values_off = 0;//*
+  this.sorted_entries = int_;
 };
 
 //616
 var Floor0 = function()
 {
-   this.order=uint8;
-   this.rate=uint16;
-   this.bark_map_size=uint16;
-   this.amplitude_bits=uint8;
-   this.amplitude_offset=uint8;
-   this.number_of_books=uint8;
-   this.book_list=new Array(16);//uint8 // varies
+  this.order = uint8;
+  this.rate = uint16;
+  this.bark_map_size = uint16;
+  this.amplitude_bits = uint8;
+  this.amplitude_offset = uint8;
+  this.number_of_books = uint8;
+  this.book_list = Array(16);//uint8 // varies
 };
 
 //627
 var Floor1 = function()
 {
-   this.partitions=uint8;
-   this.partition_class_list=new Array(32);//uint8 // varies
-   this.class_dimensions=new Array(16);//uint8 // varies
-   this.class_subclasses=new Array(16);//uint8 // varies
-   this.class_masterbooks=new Array(16);//uint8 // varies
-   this.subclass_books=new Array(16);for(var i=0;i<16;i++)this.subclass_books[i]=new Array(8);//int16 // varies
-   this.Xlist=new Array(31*8+2);//uint16 // varies
-   this.sorted_order=new Array(31*8+2);//uint8
-   this.neighbors=new Array(31*8+2);for(var i=0;i<31*8+2;i++)this.neighbors[i]=new Array(2);//uint8
-   this.floor1_multiplier=uint8;
-   this.rangebits=uint8;
-   this.values=int_;
+  this.partitions = uint8;
+  this.partition_class_list = Array(32);//uint8 // varies
+  this.class_dimensions = Array(16);//uint8 // varies
+  this.class_subclasses = Array(16);//uint8 // varies
+  this.class_masterbooks = Array(16);//uint8 // varies
+  this.subclass_books = Array(16);for(var i = 0;i<16;i++)this.subclass_books[i] = Array(8);//int16 // varies
+  this.Xlist = Array(31*8+2);//uint16 // varies
+  this.sorted_order = Array(31*8+2);//uint8
+  this.neighbors = Array(31*8+2);for(var i = 0;i<31*8+2;i++)this.neighbors[i] = Array(2);//uint8
+  this.floor1_multiplier = uint8;
+  this.rangebits = uint8;
+  this.values = int_;
 };
 
 //643
 var Floor = function() //union
 {
-   this.floor0=new Floor0();
-   this.floor1=new Floor1();
+  this.floor0 = new Floor0();
+  this.floor1 = new Floor1();
 };
 
 //649
 var Residue = function()
 {
-   this.begin=uint32, this.end=uint32;
-   this.part_size=uint32;
-   this.classifications=uint8;
-   this.classbook=uint8;
-   this.classdata=uint8;//**
-   this.residue_books=new Array(8);//int16 //(*)
+  this.begin = uint32, this.end = uint32;
+  this.part_size = uint32;
+  this.classifications = uint8;
+  this.classbook = uint8;
+  this.classdata = uint8;//**
+  this.residue_books = Array(8);//int16 //(*)
 };
 
 //659
 var MappingChannel = function()
 {
-   this.magnitude=uint8;
-   this.angle=uint8;
-   this.mux=uint8;
+  this.magnitude = uint8;
+  this.angle = uint8;
+  this.mux = uint8;
 };
 
 //666
 var Mapping = function()
 {
-   this.coupling_steps=uint16;
-   this.chan='MappingChannel';//*
-   this.submaps=uint8;
-   this.submap_floor=new Array(15);//uint8 // varies
-   this.submap_residue=new Array(15);//uint8 // varies
+  this.coupling_steps = uint16;
+  this.chan = 'MappingChannel';//*
+  this.submaps = uint8;
+  this.submap_floor = Array(15);//uint8 // varies
+  this.submap_residue = Array(15);//uint8 // varies
 };
 
 //675
 var Mode = function()
 {
-   this.blockflag=uint8;
-   this.mapping=uint8;
-   this.windowtype=uint16;
-   this.transformtype=uint16;
+  this.blockflag = uint8;
+  this.mapping = uint8;
+  this.windowtype = uint16;
+  this.transformtype = uint16;
 };
 
 //692
 var ProbedPage = function()
 {
-   this.page_start, this.page_end=uint32;
-   this.after_previous_page_start=uint32;
-   this.first_decoded_sample=uint32;
-   this.last_decoded_sample=uint32;
+  this.page_start, this.page_end = uint32;
+  this.after_previous_page_start = uint32;
+  this.first_decoded_sample = uint32;
+  this.last_decoded_sample = uint32;
 };
 
 //700
 var stb_vorbis = function()
 {
   // user-accessible info
-   this.sample_rate=int_;//unsigned
-   this.channels=int_;
+  this.sample_rate = int_;//unsigned
+  this.channels = int_;
 
-   this.setup_memory_required=int_;//unsigned
-   this.temp_memory_required=int_;//unsigned
-   this.setup_temp_memory_required=int_;//unsigned
+  this.setup_memory_required = int_;//unsigned
+  this.temp_memory_required = int_;//unsigned
+  this.setup_temp_memory_required = int_;//unsigned
 
   // input config
 //#ifndef STB_VORBIS_NO_STDIO
-   this.f='FILE';//*
-   this.f_start=uint32;
-   this.close_on_free=int_;
+  this.f = 'FILE';//*
+  this.f_start = uint32;
+  this.close_on_free = int_;
 //#endif
 
-   this.stream=uint8;//*
-   this.stream_off=0;//*
-   this.stream_start=uint8;//*
-   this.stream_start_off=0;//*
-   this.stream_end=uint8;//*
-   this.stream_end_off=0;//*
+  this.stream = uint8;//*
+  this.stream_off = 0;//*
+  this.stream_start = uint8;//*
+  this.stream_start_off = 0;//*
+  this.stream_end = uint8;//*
+  this.stream_end_off = 0;//*
 
-   this.stream_len=uint32;
+  this.stream_len = uint32;
 
-   this.push_mode=uint8;
+  this.push_mode = uint8;
 
-   this.first_audio_page_offset=uint32;
+  this.first_audio_page_offset = uint32;
 
-   this.p_first='ProbedPage', this.p_last='ProbedPage';
+  this.p_first = 'ProbedPage', this.p_last = 'ProbedPage';
 
   // memory management
-   this.alloc='stb_vorbis_alloc';
-   this.setup_offset=int_;
-   this.temp_offset=int_;
+  this.alloc = 'stb_vorbis_alloc';
+  this.setup_offset = int_;
+  this.temp_offset = int_;
 
   // run-time results
-   this.eof=int_;
-   this.error='enum STBVorbisError';
+  this.eof = int_;
+  this.error = 'enum STBVorbisError';
 
   // user-useful data
 
   // header info
-   this.blocksize=new Array(2);//int
-   this.blocksize_0=int_, this.blocksize_1=int_;
-   this.codebook_count=int_;
-   this.codebooks='Codebook';//*
-   this.floor_count=int_;
-   this.floor_types=new Array(64);//uint16 // varies
-   this.floor_config='Floor';//*
-   this.residue_count=int_;
-   this.residue_types=new Array(64);//uint16 // varies
-   this.residue_config='Residue';//*
-   this.mapping_count=int_;
-   this.mapping='Mapping';//*
-   this.mode_count=int_;
-   this.mode_config=Arr_new(64,Mode);  // varies
+  this.blocksize = Array(2);//int
+  this.blocksize_0 = int_, this.blocksize_1 = int_;
+  this.codebook_count = int_;
+  this.codebooks = 'Codebook';//*
+  this.floor_count = int_;
+  this.floor_types = Array(64);//uint16 // varies
+  this.floor_config = 'Floor';//*
+  this.residue_count = int_;
+  this.residue_types = Array(64);//uint16 // varies
+  this.residue_config = 'Residue';//*
+  this.mapping_count = int_;
+  this.mapping = 'Mapping';//*
+  this.mode_count = int_;
+  this.mode_config = Arr_new(64,Mode);  // varies
 
-   this.total_samples=uint32;
+  this.total_samples = uint32;
 
   // decode buffer
-   this.channel_buffers=new Array(STB_VORBIS_MAX_CHANNELS);//float *
-   this.outputs        =new Array(STB_VORBIS_MAX_CHANNELS);//float *
+  this.channel_buffers = Array(STB_VORBIS_MAX_CHANNELS);//float *
+  this.outputs         = Array(STB_VORBIS_MAX_CHANNELS);//float *
 
-   this.previous_window=new Array(STB_VORBIS_MAX_CHANNELS);//float *
-   this.previous_length=int_;
+  this.previous_window = Array(STB_VORBIS_MAX_CHANNELS);//float *
+  this.previous_length = int_;
 
-   //#ifndef STB_VORBIS_NO_DEFER_FLOOR
-   this.finalY=new Array(STB_VORBIS_MAX_CHANNELS);//int16 *
-   //#else
-   //float *floor_buffers[STB_VORBIS_MAX_CHANNELS];
-   //#endif
+  //#ifndef STB_VORBIS_NO_DEFER_FLOOR
+  this.finalY = Array(STB_VORBIS_MAX_CHANNELS);//int16 *
+  //#else
+  //float *floor_buffers[STB_VORBIS_MAX_CHANNELS];
+  //#endif
 
-   this.current_loc=uint32; // sample location of next frame to decode
-       this.current_loc_valid=int_;
+  this.current_loc = uint32; // sample location of next frame to decode
+  this.current_loc_valid = int_;
 
   // per-blocksize precomputed data
-   
-   // twiddle factors
-   this.A=new Array(2),this.B=new Array(2),this.C=new Array(2);//float *,*,*
-   this.window_=new Array(2);//float *
-   this.bit_reverse=new Array(2);//uint16 *
+
+  // twiddle factors
+  this.A = Array(2);
+  this.B = Array(2);
+  this.C = Array(2);//float *,*,*
+  this.window_ = Array(2);//float *
+  this.bit_reverse = Array(2);//uint16 *
 
   // current page/packet/segment streaming info
-   this.serial=uint32; // stream serial number for verification
-   this.last_page=int_;
-   this.segment_count=int_;
-   this.segments=Arr(255,uint8);//
-   this.page_flag=uint8;
-   this.bytes_in_seg=uint8;
-   this.first_decode=uint8;
-   this.next_seg=int_;
-   this.last_seg=int_;  // flag that we're on the last segment
-   this.last_seg_which=int_; // what was the segment number of the last seg?
-   this.acc=uint32;
-   this.valid_bits=int_;
-   this.packet_bytes=int_;
-   this.end_seg_with_known_loc=int_;
-   this.known_loc_for_packet=uint32;
-   this.discard_samples_deferred=int_;
-   this.samples_output=uint32;
+  this.serial = uint32; // stream serial number for verification
+  this.last_page = int_;
+  this.segment_count = int_;
+  this.segments = Arr(255, uint8);//
+  this.page_flag = uint8;
+  this.bytes_in_seg = uint8;
+  this.first_decode = uint8;
+  this.next_seg = int_;
+  this.last_seg = int_;  // flag that we're on the last segment
+  this.last_seg_which = int_; // what was the segment number of the last seg?
+  this.acc = uint32;
+  this.valid_bits = int_;
+  this.packet_bytes = int_;
+  this.end_seg_with_known_loc = int_;
+  this.known_loc_for_packet = uint32;
+  this.discard_samples_deferred = int_;
+  this.samples_output = uint32;
 
   // push mode scanning
-   this.page_crc_tests=int_; // only in push_mode: number of tests active; -1 if not searching
+  this.page_crc_tests = int_; // only in push_mode: number of tests active; -1 if not searching
 //#ifndef STB_VORBIS_NO_PUSHDATA_API
-   this.scan=new Array(STB_VORBIS_PUSHDATA_CRC_COUNT);//CRCscan
+  this.scan = Array(STB_VORBIS_PUSHDATA_CRC_COUNT);//CRCscan
 //#endif
 
   // sample-access
-   this.channel_buffer_start=int_;
-   this.channel_buffer_end=int_;
+  this.channel_buffer_start = int_;
+  this.channel_buffer_end = int_;
 };
 
 //818
@@ -567,11 +558,11 @@ function stb_prof(x)  { return 0 }
 
 //818
 //#if defined(STB_VORBIS_NO_PUSHDATA_API)
-//   #define IS_PUSH_MODE(f)   FALSE
+//  #define IS_PUSH_MODE(f)  FALSE
 //#elif defined(STB_VORBIS_NO_PULLDATA_API)
-//   #define IS_PUSH_MODE(f)   TRUE
+//  #define IS_PUSH_MODE(f)  TRUE
 //#else
-   function IS_PUSH_MODE(f)   { return ((f).push_mode) }
+  function IS_PUSH_MODE(f)  { return ((f).push_mode) }
 //#endif
 
 //851
@@ -582,21 +573,20 @@ var CRC32_POLY    = 0x04c11db7;   // from spec
 
 var crc_table=new Array(256);//static uint32
 //911
-function crc32_init()//void
-{
-   var i=int_,j=int_;
-   var s=uint32;
-   for(i=0; i < 256; i++) {
-      for (s=(i<<24)>>>0, j=0; j < 8; ++j)
-         s = ((s << 1) ^ (s >= ((1<<31)>>>0) ? CRC32_POLY : 0))>>>0;
-      crc_table[i] = s;
+function crc32_init() {
+  var i=int_,j=int_;
+  var s=uint32;
+  for(i=0; i < 256; i++) {
+    for (s=(i<<24)>>>0, j=0; j < 8; ++j) {
+      s = ((s << 1) ^ (s >= ((1<<31)>>>0) ? CRC32_POLY : 0))>>>0;
+    }
+    crc_table[i] = s;
    }
 }
 
 // used in setup, and for huffman that doesn't go fast path
 //929
-function bit_reverse(n)
-{
+function bit_reverse(n) {
   n = (((n & 0xAAAAAAAA) >>>  1) | ((n & 0x55555555) << 1))>>>0;
   n = (((n & 0xCCCCCCCC) >>>  2) | ((n & 0x33333333) << 2))>>>0;
   n = (((n & 0xF0F0F0F0) >>>  4) | ((n & 0x0F0F0F0F) << 4))>>>0;
@@ -605,9 +595,9 @@ function bit_reverse(n)
 }
 
 //938
-function square(x)
-{
-   return x*x;
+function square(x) {
+  console.log('square')
+  return x*x;
 }
 
 // this is a weird definition of log2() for which log2(1) = 1, log2(2) = 2, log2(4) = 3
@@ -860,65 +850,64 @@ function compute_twiddle_factors(n, A, B, C)
 }
 
 //1179
-function compute_window(n, window_)
-{
-   var n2 = n >> 1, i=int_;//int_
-   for (i=0; i < n2; ++i)
-      window_[i] = Math.sin(0.5 * M_PI * square(Math.sin((i - 0 + 0.5) / n2 * 0.5 * M_PI)));//(float) (float) 
+function compute_window(n, window_) {
+  var n2 = n >> 1;
+  var s;
+  for (var i = 0; i < n2; ++i) {
+    s = Math.sin((i - 0 + 0.5) / n2 * 0.5 * M_PI);
+    window_[i] = Math.sin(0.5 * M_PI * s * s);//(float) (float) 
+  }
 }
 
 //1186
-function compute_bitreverse(n, rev)
-{
-   var ld = ilog(n) - 1;//int_ // ilog is off-by-one from normal definitions
-   var i=int_, n8 = n >>> 3;//int_
-   for (i=0; i < n8; ++i)
-      rev[i] = (bit_reverse(i) >>> (32-ld+3)) << 2;
+function compute_bitreverse(n, rev) {
+  var ld = ilog(n) - 1;//int_ // ilog is off-by-one from normal definitions
+  var i=int_, n8 = n >>> 3;//int_
+  for (i=0; i < n8; ++i) {
+    rev[i] = (bit_reverse(i) >>> (32-ld+3)) << 2;
+  }
 }
 
 //1194
-function init_blocksize(f, b, n)
-{
-   var n2 = n >>> 1, n4 = n >>> 2, n8 = n >>> 3;//int_
-   f.A[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
-   f.B[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
-   f.C[b] = new Array(n4);//(float *) setup_malloc(f, sizeof(float) * n4);
-   if (!f.A[b] || !f.B[b] || !f.C[b]) return error(f, VORBIS_outofmem);
-   compute_twiddle_factors(n, f.A[b], f.B[b], f.C[b]);
-   f.window_[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
-   if (!f.window_[b]) return error(f, VORBIS_outofmem);
-   compute_window(n, f.window_[b]);
-   f.bit_reverse[b] = new Array(n8);//(uint16 *) setup_malloc(f, sizeof(uint16) * n8);
-   if (!f.bit_reverse[b]) return error(f, VORBIS_outofmem);
-   compute_bitreverse(n, f.bit_reverse[b]);
-   return true;
+function init_blocksize(f, b, n) {
+  var n2 = n >>> 1, n4 = n >>> 2, n8 = n >>> 3;//int_
+  f.A[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
+  f.B[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
+  f.C[b] = new Array(n4);//(float *) setup_malloc(f, sizeof(float) * n4);
+  if (!f.A[b] || !f.B[b] || !f.C[b]) return error(f, VORBIS_outofmem);
+  compute_twiddle_factors(n, f.A[b], f.B[b], f.C[b]);
+  f.window_[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
+  if (!f.window_[b]) return error(f, VORBIS_outofmem);
+  compute_window(n, f.window_[b]);
+  f.bit_reverse[b] = new Array(n8);//(uint16 *) setup_malloc(f, sizeof(uint16) * n8);
+  if (!f.bit_reverse[b]) return error(f, VORBIS_outofmem);
+  compute_bitreverse(n, f.bit_reverse[b]);
+  return true;
 }
 
 //1211
-function neighbors(x, n, plow, phigh)
-{
-   var low = -1;//int_
-   var high = 65536;//int_
-   var i;//int_
-   for (i=0; i < n; ++i) {
-      if (x[i] > low  && x[i] < x[n]) { plow[0]  = i; low = x[i]; }
-      if (x[i] < high && x[i] > x[n]) { phigh[0] = i; high = x[i]; }
-   }
+function neighbors(x, n, plow, phigh) {
+  var low = -1;//int_
+  var high = 65536;//int_
+  var i;//int_
+  for (i=0; i < n; ++i) {
+    if (x[i] > low  && x[i] < x[n]) { plow[0]  = i; low = x[i]; }
+    if (x[i] < high && x[i] > x[n]) { phigh[0] = i; high = x[i]; }
+  }
 }
 
 // this has been repurposed so y is now the original index instead of y
 //1223
-var Point = function()
-{
-   this.x=52428,this.y=52428;//uint16,uint16
+var Point = function() {
+  this.x=52428;//uint16
+  this.y=52428;//uint16
 };
 
 //1228
-function point_compare(p, q)
-{
-   var a = p;//Point * = (Point *) 
-   var b = q;//Point * = (Point *) 
-   return a.x < b.x ? -1 : a.x > b.x;
+function point_compare(p, q) {
+  var a = p;//Point * = (Point *) 
+  var b = q;//Point * = (Point *) 
+  return a.x < b.x ? -1 : a.x > b.x;
 }
 
 //
@@ -928,81 +917,74 @@ function point_compare(p, q)
 //#if defined(STB_VORBIS_NO_STDIO)
 //   #define USE_MEMORY(z)    TRUE
 //#else
-   function USE_MEMORY(z)    { return ((z).stream) }
+function USE_MEMORY(z) { return ((z).stream) }
 //#endif
 
 //1245
-function get8(z)
-{
-   if (USE_MEMORY(z)) {
-      if (z.stream_off >= z.stream_end_off) { z.eof = true; return 0; }
-      return z.stream_off++;//*
-   }
+function get8(z) {
+  if (USE_MEMORY(z)) {
+    if (z.stream_off >= z.stream_end_off) {
+      z.eof = true;
+      return 0;
+    }
+    return z.stream_off++;//*
+  }
 
-   //#ifndef STB_VORBIS_NO_STDIO
-   {
-   var c = fgetc(z.f);//int_
-   if (c == EOF) { z.eof = true; return 0; }
-   return c;
-   }
+  //#ifndef STB_VORBIS_NO_STDIO
+  var c = fgetc(z.f);//int_
+  if (c == EOF) {
+    z.eof = true;
+    return 0;
+  }
+  return c;
    //#endif
 }
 
 //1261
-function get32(f)
-{
-   var x=uint32;
-   x = get8(f);
-   x += get8(f) << 8;
-   x += get8(f) << 16;
-   x += get8(f) << 24;
-   return x;
+function get32(f) {
+  var x=uint32;
+  x = get8(f);
+  x += get8(f) << 8;
+  x += get8(f) << 16;
+  x += get8(f) << 24;
+  return x;
 }
 
 //1271
-function getn(z, data, n)
-{
-   if (USE_MEMORY(z)) {
-      if (z.stream_off+n > z.stream_end_off) { z.eof = 1; return 0; }
-      memcpy(data, 0, z.stream, z.stream_off, n);
-      z.stream_off += n;
-      return 1;
-   }
-
-   //#ifndef STB_VORBIS_NO_STDIO   
-   if (fread(data, n, 1, z.f) == 1)
-      return 1;
-   else {
+function getn(z, data, n) {
+  if (USE_MEMORY(z)) {
+    if (z.stream_off+n > z.stream_end_off) {
       z.eof = 1;
       return 0;
-   }
-   //#endif
+    }
+    memcpy(data, 0, z.stream, z.stream_off, n);
+    z.stream_off += n;
+    return 1;
+  }
+
+  //#ifndef STB_VORBIS_NO_STDIO   
+  if (fread(data, n, 1, z.f) == 1) {
+    return 1;
+  } else {
+    z.eof = 1;
+    return 0;
+  }
+  //#endif
 }
 
 //1290
-function skip(z, n)
-{
-   if (USE_MEMORY(z)) {
-      z.stream_off += n;
-      if (z.stream_off >= z.stream_end_off) z.eof = 1;
-      return;
-   }
-   //#ifndef STB_VORBIS_NO_STDIO
-   {
-      var x = ftell(z.f);//long
-      fseek(z.f, x+n, SEEK_SET);
-   }
-   //#endif
-}
-
-//1339
-function capture_pattern(f)
-{
-   if (0x4f != get8(f)) return false;
-   if (0x67 != get8(f)) return false;
-   if (0x67 != get8(f)) return false;
-   if (0x53 != get8(f)) return false;
-   return true;
+function skip(z, n) {
+  if (USE_MEMORY(z)) {
+    z.stream_off += n;
+    if (z.stream_off >= z.stream_end_off) {
+      z.eof = 1;
+    }
+    return;
+  }
+  //#ifndef STB_VORBIS_NO_STDIO
+  var x = ftell(z.f);//long
+  fseek(z.f, x+n, SEEK_SET);
+  //#endif
 }
 
 var PAGEFLAG_continued_packet   = 1;
@@ -1010,125 +992,140 @@ var PAGEFLAG_first_page         = 2;
 var PAGEFLAG_last_page          = 4;
 
 //1352
-function start_page_no_capturepattern(f)
-{
-   var loc0=uint32,loc1=uint32,n=uint32,i=uint32;
-   // stream structure version
-   if (0 != get8(f)) return error(f, VORBIS_invalid_stream_structure_version);
-   // header flag
-   f.page_flag = get8(f);
-   // absolute granule position
-   loc0 = get32(f); 
-   loc1 = get32(f);
-   // @TODO: validate loc0,loc1 as valid positions?
-   // stream serial number -- vorbis doesn't interleave, so discard
-   get32(f);
-   //if (f->serial != get32(f)) return error(f, VORBIS_incorrect_stream_serial_number);
-   // page sequence number
-   n = get32(f);
-   f.last_page = n;
-   // CRC32
-   get32(f);
-   // page_segments
-   f.segment_count = get8(f);
-   if (!getn(f, f.segments, f.segment_count))
-      return error(f, VORBIS_unexpected_eof);
-   // assume we _don't_ know any the sample position of any segments
-   f.end_seg_with_known_loc = -2;
-   if (loc0 != ~0 || loc1 != ~0) {
-      // determine which packet is the last one that will complete
-      for (i=f.segment_count-1; i >= 0; --i)
-         if (f.segments[i] < 255)
-            break;
-      // 'i' is now the index of the _last_ segment of a packet that ends
-      if (i >= 0) {
-         f.end_seg_with_known_loc = i;
-         f.known_loc_for_packet   = loc0;
+function start_page_no_capturepattern(f) {
+  var loc0=uint32,loc1=uint32,n=uint32,i=uint32;
+  // stream structure version
+  if (0 != get8(f)) {
+    return error(f, VORBIS_invalid_stream_structure_version);
+  }
+  // header flag
+  f.page_flag = get8(f);
+  // absolute granule position
+  loc0 = get32(f); 
+  loc1 = get32(f);
+  // @TODO: validate loc0,loc1 as valid positions?
+  // stream serial number -- vorbis doesn't interleave, so discard
+  get32(f);
+  //if (f->serial != get32(f)) return error(f, VORBIS_incorrect_stream_serial_number);
+  // page sequence number
+  n = get32(f);
+  f.last_page = n;
+  // CRC32
+  get32(f);
+  // page_segments
+  f.segment_count = get8(f);
+  if (!getn(f, f.segments, f.segment_count)) {
+    return error(f, VORBIS_unexpected_eof);
+  }
+  // assume we _don't_ know any the sample position of any segments
+  f.end_seg_with_known_loc = -2;
+  if (loc0 != ~0 || loc1 != ~0) {
+    // determine which packet is the last one that will complete
+    for (i = f.segment_count-1; i >= 0; --i) {
+      if (f.segments[i] < 255) {
+        break;
       }
-   }
-   if (f.first_decode) {
-      var i=int_,len=int_;
-      var p=new ProbedPage();
-      len = 0;
-      for (i=0; i < f.segment_count; ++i)
-         len += f.segments[i];
-      len += 27 + f.segment_count;
-      p.page_start = f.first_audio_page_offset;
-      p.page_end = p.page_start + len;
-      p.after_previous_page_start = p.page_start;
-      p.first_decoded_sample = 0;
-      p.last_decoded_sample = loc0;
-      f.p_first = p;
-   }
-   f.next_seg = 0;
-   return true;
+    }
+      // 'i' is now the index of the _last_ segment of a packet that ends
+    if (i >= 0) {
+      f.end_seg_with_known_loc = i;
+      f.known_loc_for_packet   = loc0;
+    }
+  }
+  if (f.first_decode) {
+    var i = int_, len = int_;
+    var p = new ProbedPage();
+    len = 0;
+    for (i = 0; i < f.segment_count; ++i) {
+      len += f.segments[i];
+    }
+    len += 27 + f.segment_count;
+    p.page_start = f.first_audio_page_offset;
+    p.page_end = p.page_start + len;
+    p.after_previous_page_start = p.page_start;
+    p.first_decoded_sample = 0;
+    p.last_decoded_sample = loc0;
+    f.p_first = p;
+  }
+  f.next_seg = 0;
+  return true;
 }
 
 //1406
-function start_page(f)
-{
-   if (!capture_pattern(f)) return error(f, VORBIS_missing_capture_pattern);
-   return start_page_no_capturepattern(f);
+function start_page(f) {
+  if (0x4f === get8(f) && 0x67 === get8(f) && 0x67 === get8(f) && 0x53 === get8(f)) {
+    return start_page_no_capturepattern(f);
+  }
+  return error(f, VORBIS_missing_capture_pattern);
 }
 
 //1412
-function start_packet(f)
-{
-   while (f.next_seg == -1) {
-      if (!start_page(f)) return false;
-      if (f.page_flag & PAGEFLAG_continued_packet)
-         return error(f, VORBIS_continued_packet_flag_invalid);
-   }
-   f.last_seg = false;
-   f.valid_bits = 0;
-   f.packet_bytes = 0;
-   f.bytes_in_seg = 0;
-   // f->next_seg is now valid
-   return true;
+function start_packet(f) {
+  while (f.next_seg === -1) {
+    if (!start_page(f)) {
+      return false;
+    }
+    if (f.page_flag & PAGEFLAG_continued_packet) {
+      return error(f, VORBIS_continued_packet_flag_invalid);
+    }
+  }
+  f.last_seg = false;
+  f.valid_bits = 0;
+  f.packet_bytes = 0;
+  f.bytes_in_seg = 0;
+  // f->next_seg is now valid
+  return true;
 }
 
 //1427
-function maybe_start_packet(f)
-{
-   if (f.next_seg == -1) {
-      var x = get8(f);//int_
-      if (f.eof) return false; // EOF at page boundary is not an error!
-      if (0x4f != x      ) return error(f, VORBIS_missing_capture_pattern);
-      if (0x67 != get8(f)) return error(f, VORBIS_missing_capture_pattern);
-      if (0x67 != get8(f)) return error(f, VORBIS_missing_capture_pattern);
-      if (0x53 != get8(f)) return error(f, VORBIS_missing_capture_pattern);
-      if (!start_page_no_capturepattern(f)) return false;
-      if (f.page_flag & PAGEFLAG_continued_packet) {
-         // set up enough state that we can read this packet if we want,
-         // e.g. during recovery
-         f.last_seg = false;
-         f.bytes_in_seg = 0;
-         return error(f, VORBIS_continued_packet_flag_invalid);
-      }
-   }
-   return start_packet(f);
+function maybe_start_packet(f) {
+  if (f.next_seg === -1) {
+    var x = get8(f);//int_
+    if (f.eof) return false; // EOF at page boundary is not an error!
+    if (0x4f !== x || 0x67 !== get8(f) || 0x67 !== get8(f) || 0x53 !== get8(f)) {
+      return error(f, VORBIS_missing_capture_pattern);
+    }
+    if (!start_page_no_capturepattern(f)) {
+      return false;
+    }
+    if (f.page_flag & PAGEFLAG_continued_packet) {
+      // set up enough state that we can read this packet if we want,
+      // e.g. during recovery
+      f.last_seg = false;
+      f.bytes_in_seg = 0;
+      return error(f, VORBIS_continued_packet_flag_invalid);
+    }
+  }
+  return start_packet(f);
 }
 
 //1448
-function next_segment(f)
-{
-   var len=int_;
-   if (f.last_seg) return 0;
-   if (f.next_seg == -1) {
-      f.last_seg_which = f.segment_count-1; // in case start_page fails
-      if (!start_page(f)) { f.last_seg = 1; return 0; }
-      if (!(f.page_flag & PAGEFLAG_continued_packet)) return error(f, VORBIS_continued_packet_flag_invalid);
-   }
-   len = f.segments[f.next_seg++];
-   if (len < 255) {
-      f.last_seg = true;
-      f.last_seg_which = f.next_seg-1;
-   }
-   if (f.next_seg >= f.segment_count)
-      f.next_seg = -1;
-   assert(f.bytes_in_seg == 0);
-   f.bytes_in_seg = len;
-   return len;
+function next_segment(f) {
+  var len = int_;
+  if (f.last_seg) {
+    return 0;
+  }
+  if (f.next_seg === -1) {
+    f.last_seg_which = f.segment_count-1; // in case start_page fails
+    if (!start_page(f)) {
+      f.last_seg = 1;
+      return 0;
+    }
+    if (!(f.page_flag & PAGEFLAG_continued_packet)) {
+      return error(f, VORBIS_continued_packet_flag_invalid);
+    }
+  }
+  len = f.segments[f.next_seg++];
+  if (len < 255) {
+    f.last_seg = true;
+    f.last_seg_which = f.next_seg-1;
+  }
+  if (f.next_seg >= f.segment_count) {
+    f.next_seg = -1;
+  }
+  assert(f.bytes_in_seg === 0);
+  f.bytes_in_seg = len;
+  return len;
 }
 
 var EOP    = (-1);
@@ -1652,6 +1649,7 @@ new Array(
   0.64356699,    0.68538959,    0.72993007,    0.77736504, 
   0.82788260,    0.88168307,    0.9389798,     1.0
 );
+// inverse_db_table = Float32Array.from(inverse_db_table);
 
 
 //2013
@@ -1753,8 +1751,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
          //goto done;
          stb_prof(0);
          temp_alloc_restore(f,temp_alloc_point);
-		 return;
-	  }
+     return;
+    }
 
       stb_prof(3);
       for (pass=0; pass < 8; ++pass) {
@@ -1771,8 +1769,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                   if (q == EOP) {//goto done;
                      stb_prof(0);
                      temp_alloc_restore(f,temp_alloc_point);
-					 return;
-				  }
+           return;
+          }
 //                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
                   part_classdata[0][class_set] = r.classdata[q];
 //                  #else
@@ -1803,8 +1801,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                         //goto done;
                         stb_prof(0);
                         temp_alloc_restore(f,temp_alloc_point);
-						return;
-					 }
+            return;
+           }
 //                     #endif
                      stb_prof(7);
                   } else {
@@ -1829,8 +1827,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                   if (q == EOP) { //goto done;
                      stb_prof(0);
                      temp_alloc_restore(f,temp_alloc_point);
-					 return;
-				  }
+           return;
+          }
 //                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
                   part_classdata[0][class_set] = r.classdata[q];
 //                  #else
@@ -1855,8 +1853,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                         //goto done;
                         stb_prof(0);
                         temp_alloc_restore(f,temp_alloc_point);
-						return;
-					 }
+            return;
+           }
                      stb_prof(3);
                   } else {
                      z += r.part_size;
@@ -1879,8 +1877,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                   if (q == EOP) { //goto done;
                      stb_prof(0);
                      temp_alloc_restore(f,temp_alloc_point);
-					 return;
-				  }
+           return;
+          }
 //                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
                   part_classdata[0][class_set] = r.classdata[q];
 //                  #else
@@ -1905,8 +1903,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                         //goto done;
                         stb_prof(0);
                         temp_alloc_restore(f,temp_alloc_point);
-						return;
-					 }
+            return;
+           }
                      stb_prof(3);
                   } else {
                      z += r.part_size;
@@ -1923,7 +1921,7 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
       //goto done;
       stb_prof(0);
       temp_alloc_restore(f,temp_alloc_point);
-	  return;
+    return;
    }
    stb_prof(9);
 
@@ -1939,8 +1937,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                   if (temp == EOP) { //goto done;
                      stb_prof(0);
                      temp_alloc_restore(f,temp_alloc_point);
-					 return;
-				  }
+           return;
+          }
 //                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
                   part_classdata[j][class_set] = r.classdata[temp];
 //                  #else
@@ -1970,8 +1968,8 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode)
                         //goto done;
                         stb_prof(0);
                         temp_alloc_restore(f,temp_alloc_point);
-						return;
-					 }
+            return;
+           }
                   }
                }
             }
@@ -2527,293 +2525,297 @@ function inverse_mdct(buffer, n, f, blocktype)
 }
 
 //3079
-function get_window(f, len)
-{
-   len <<= 1;
-   if (len == f.blocksize_0) return f.window_[0];
-   if (len == f.blocksize_1) return f.window_[1];
-   assert(0);
-   return null;
+function get_window(f, len) {
+  len <<= 1;
+  if (len == f.blocksize_0) return f.window_[0];
+  if (len == f.blocksize_1) return f.window_[1];
+  assert(0);
+  return null;
 }
 
 //3093
-function do_floor(f, map, i, n, target, finalY, step2_flag)
-{
-   var n2 = n >>> 1;//int_
-   var s = map.chan[i].mux, floor1=int_;//int_
-   floor1 = map.submap_floor[s];
-   if (f.floor_types[floor1] == 0) {
-      return error(f, VORBIS_invalid_stream);
-   } else {
-      var g = f.floor_config[floor1].floor1;//Floor1 * = &
-      var j=int_,q=int_;
-      var lx = 0, ly = finalY[0] * g.floor1_multiplier;//int_
-      for (q=1; q < g.values; ++q) {
-         j = g.sorted_order[q];
-//         #ifndef STB_VORBIS_NO_DEFER_FLOOR
-         if (finalY[j] >= 0)
-//         #else
-//         if (step2_flag[j])
-//         #endif
-         {
-            var hy = finalY[j] * g.floor1_multiplier;//int_
-            var hx = g.Xlist[j];//int_
-            draw_line(target, lx,ly, hx,hy, n2);
-            lx = hx, ly = hy;
-         }
+function do_floor(f, map, i, n, target, finalY, step2_flag) {
+  var n2 = n >>> 1;//int_
+  var s = map.chan[i].mux, floor1=int_;//int_
+  floor1 = map.submap_floor[s];
+  if (f.floor_types[floor1] === 0) {
+    return error(f, VORBIS_invalid_stream);
+  } else {
+    var g = f.floor_config[floor1].floor1;//Floor1 * = &
+    var j=int_,q=int_;
+    var lx = 0, ly = finalY[0] * g.floor1_multiplier;//int_
+    for (q=1; q < g.values; ++q) {
+      j = g.sorted_order[q];
+//    #ifndef STB_VORBIS_NO_DEFER_FLOOR
+      if (finalY[j] >= 0)
+//    #else
+//    if (step2_flag[j])
+//       #endif
+      {
+        var hy = finalY[j] * g.floor1_multiplier;//int_
+        var hx = g.Xlist[j];//int_
+        draw_line(target, lx,ly, hx,hy, n2);
+        lx = hx, ly = hy;
       }
-      if (lx < n2)
-         // optimization of: draw_line(target, lx,ly, n,ly, n2);
-         for (j=lx; j < n2; ++j)
-            target[j] *= inverse_db_table[ly];//LINE_OP(target[j], inverse_db_table[ly]);
-   }
-   return true;
+    }
+    if (lx < n2) {
+      // optimization of: draw_line(target, lx,ly, n,ly, n2);
+      for (j=lx; j < n2; ++j) {
+        target[j] *= inverse_db_table[ly];//LINE_OP(target[j], inverse_db_table[ly]);
+      }
+    }
+  }
+  return true;
 }
 
 //3126
-function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_right_end, mode)
-{
-   var m=new Mode();//*
-   var i=int_, n=int_, prev=int_, next=int_, window_center=int_;
-   f.channel_buffer_start = f.channel_buffer_end = 0;
+function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_right_end, mode) {
+  var m = new Mode();//*
+  var i = int_, n = int_, prev = int_, next = int_, window_center = int_;
+  f.channel_buffer_start = f.channel_buffer_end = 0;
 
-  var goto_retry=true;//retry:
-  while(goto_retry) {
-   goto_retry=false;
-   if (f.eof) return false;
-   if (!maybe_start_packet(f))
+  var goto_retry = true;//retry:
+  while (goto_retry) {
+    goto_retry = false;
+    if (f.eof) return false;
+    if (!maybe_start_packet(f))
       return false;
-   // check packet type
-   if (get_bits(f,1) != 0) {
-      if (IS_PUSH_MODE(f))
-         return error(f,VORBIS_bad_packet_type);
-      while (EOP != get8_packet(f));
-      goto_retry=true;
-   }
+    // check packet type
+    if (get_bits(f, 1) !== 0) {
+      if (IS_PUSH_MODE(f)) {
+        return error(f,VORBIS_bad_packet_type);
+      }
+      while (EOP !== get8_packet(f));
+      goto_retry = true;
+    }
   }
 
-   if (f.alloc.alloc_buffer)
-      assert(f.alloc.alloc_buffer_length_in_bytes == f.temp_offset);
+  if (f.alloc.alloc_buffer) {
+    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  }
 
-   i = get_bits(f, ilog(f.mode_count-1));
-   if (i == EOP) return false;
-   if (i >= f.mode_count) return false;
-   mode[0] = i;//*
-   m = f.mode_config[ + i];
-   if (m.blockflag) {
-      n = f.blocksize_1;
-      prev = get_bits(f,1);
-      next = get_bits(f,1);
-   } else {
-      prev = next = 0;
-      n = f.blocksize_0;
-   }
+  i = get_bits(f, ilog(f.mode_count-1));
+  if (i === EOP) return false;
+  if (i >= f.mode_count) return false;
+  mode[0] = i;//*
+  m = f.mode_config[ + i];
+  if (m.blockflag) {
+    n = f.blocksize_1;
+    prev = get_bits(f,1);
+    next = get_bits(f,1);
+  } else {
+    prev = next = 0;
+    n = f.blocksize_0;
+  }
 
 // WINDOWING
 
-   window_center = n >>> 1;
-   if (m.blockflag && !prev) {
-      p_left_start[0] = (n - f.blocksize_0) >>> 2;//*
-      p_left_end[0]   = (n + f.blocksize_0) >>> 2;//*
-   } else {
-      p_left_start[0] = 0;//*
-      p_left_end[0]   = window_center;//*
-   }
-   if (m.blockflag && !next) {
-      p_right_start[0] = (n*3 - f.blocksize_0) >>> 2;//*
-      p_right_end[0]   = (n*3 + f.blocksize_0) >>> 2;//*
-   } else {
-      p_right_start[0] = window_center;//*
-      p_right_end[0]   = n;//*
-   }
-   return true;
+  window_center = n >>> 1;
+  if (m.blockflag && !prev) {
+    p_left_start[0] = (n - f.blocksize_0) >>> 2;//*
+    p_left_end[0]   = (n + f.blocksize_0) >>> 2;//*
+  } else {
+    p_left_start[0] = 0;//*
+    p_left_end[0]   = window_center;//*
+  }
+  if (m.blockflag && !next) {
+    p_right_start[0] = (n*3 - f.blocksize_0) >>> 2;//*
+    p_right_end[0]   = (n*3 + f.blocksize_0) >>> 2;//*
+  } else {
+    p_right_start[0] = window_center;//*
+    p_right_end[0]   = n;//*
+  }
+  return true;
 }
 
 //3181
-function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start, right_end, p_left)
-{
-   var map=new Mapping();//*
-   var i=int_,j=int_,k=int_,n=int_,n2=int_;
-   var zero_channel=new Array(256);//int_
-   var really_zero_channel=new Array(256);//int_
-   var window_center=int_;
+function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start, right_end, p_left) {
+  var map = new Mapping();//*
+  var i = int_, j = int_, k = int_, n = int_, n2 = int_;
+  var zero_channel = Array(256);//int_
+  var really_zero_channel = Array(256);//int_
+  var window_center = int_;
 
 // WINDOWING
 
-   n = f.blocksize[m.blockflag];
-   window_center = n >>> 1;
+  n = f.blocksize[m.blockflag];
+  window_center = n >>> 1;
 
-   map = f.mapping[m.mapping];//&
+  map = f.mapping[m.mapping];//&
 
 // FLOORS
-   n2 = n >>> 1;
+  n2 = n >>> 1;
 
-   stb_prof(1);
-   goto_channels:for (i=0; i < f.channels; ++i) {
-      var s = map.chan[i].mux, floor1=int_;//int_
-      zero_channel[i] = false;
-      floor1 = map.submap_floor[s];
-      if (f.floor_types[floor1] == 0) {
-         return error(f, VORBIS_invalid_stream);
-      } else {
-         var g = f.floor_config[floor1].floor1;//Floor1 * = &
-         if (get_bits(f, 1)) {
-            var finalY=short_;//*
-            var step2_flag=new Array(256);//uint8
-            var range_list = new Array( 256, 128, 86, 64 );//static int_
-            var range = range_list[g.floor1_multiplier-1];//int_
-            var offset = 2;//int_
-            finalY = f.finalY[i];
-            finalY[0] = get_bits(f, ilog(range)-1);
-            finalY[1] = get_bits(f, ilog(range)-1);
-            for (j=0; j < g.partitions; ++j) {
-               var pclass = g.partition_class_list[j];//int_
-               var cdim = g.class_dimensions[pclass];//int_
-               var cbits = g.class_subclasses[pclass];//int_
-               var csub = ((1 << cbits)>>>0)-1;//int_
-               var cval = [0];//int_
-               if (cbits) {
-                  var c = f.codebooks[ + g.class_masterbooks[pclass]];//Codebook *
-                  DECODE(cval,f,c);cval=cval[0];
-               }
-               for (k=0; k < cdim; ++k) {
-                  var book = g.subclass_books[pclass][cval & csub];//int_
-                  cval = cval >>> cbits;
-                  if (book >= 0) {
-                     var temp=[int_];
-                     var c = f.codebooks[ + book];//Codebook *
-                     DECODE(temp,f,c);
-                     finalY[offset++] = temp[0];
-                  } else
-                     finalY[offset++] = 0;
-               }
+  stb_prof(1);
+  goto_channels:for (i = 0; i < f.channels; ++i) {
+    var s = map.chan[i].mux;//int_
+    var floor1 = map.submap_floor[s];//int_
+    zero_channel[i] = false;
+    if (f.floor_types[floor1] === 0) {
+      return error(f, VORBIS_invalid_stream);
+    } else {
+      var g = f.floor_config[floor1].floor1;//Floor1 * = &
+      if (get_bits(f, 1)) {
+        var finalY = short_;//*
+        var step2_flag = Array(256);//uint8
+        var range_list = Array( 256, 128, 86, 64 );//static int_
+        var range = range_list[g.floor1_multiplier-1];//int_
+        var offset = 2;//int_
+        finalY = f.finalY[i];
+        finalY[0] = get_bits(f, ilog(range)-1);
+        finalY[1] = get_bits(f, ilog(range)-1);
+        for (j = 0; j < g.partitions; ++j) {
+          var pclass = g.partition_class_list[j];//int_
+          var cdim = g.class_dimensions[pclass];//int_
+          var cbits = g.class_subclasses[pclass];//int_
+          var csub = ((1 << cbits)>>>0)-1;//int_
+          var cval = [0];//int_
+          if (cbits) {
+            var c = f.codebooks[ + g.class_masterbooks[pclass]];//Codebook *
+            DECODE(cval,f,c);cval=cval[0];
+          }
+          for (k = 0; k < cdim; ++k) {
+            var book = g.subclass_books[pclass][cval & csub];//int_
+            cval = cval >>> cbits;
+            if (book >= 0) {
+              var temp=[int_];
+              var c = f.codebooks[ + book];//Codebook *
+              DECODE(temp,f,c);
+              finalY[offset++] = temp[0];
+            } else {
+              finalY[offset++] = 0;
             }
-            if (f.valid_bits == INVALID_BITS) { zero_channel[i] = true; continue goto_channels;/*goto error*/}; // behavior according to spec
-            step2_flag[0] = step2_flag[1] = 1;
-            for (j=2; j < g.values; ++j) {
-               var low=int_, high=int_, pred=int_, highroom=int_, lowroom=int_, room=int_, val=int_;
-               low = g.neighbors[j][0];
-               high = g.neighbors[j][1];
-               //neighbors(g->Xlist, j, &low, &high);
-               pred = predict_point(g.Xlist[j], g.Xlist[low], g.Xlist[high], finalY[low], finalY[high]);
-               val = finalY[j];
-               highroom = range - pred;
-               lowroom = pred;
-               if (highroom < lowroom)
-                  room = highroom * 2;
-               else
-                  room = lowroom * 2;
-               if (val) {
-                  step2_flag[low] = step2_flag[high] = 1;
-                  step2_flag[j] = 1;
-                  if (val >= room)
-                     if (highroom > lowroom)
-                        finalY[j] = val - lowroom + pred;
-                     else
-                        finalY[j] = pred - val + highroom - 1;
-                  else
-                     if (val & 1)
-                        finalY[j] = pred - ((val+1)>>>1);
-                     else
-                        finalY[j] = pred + (val>>>1);
-               } else {
-                  step2_flag[j] = 0;
-                  finalY[j] = pred;
-               }
+          }
+        }
+        if (f.valid_bits === INVALID_BITS) {
+          zero_channel[i] = true;
+          continue goto_channels;/*goto error*/
+        }; // behavior according to spec
+        step2_flag[0] = step2_flag[1] = 1;
+        for (j = 2; j < g.values; ++j) {
+          var low = g.neighbors[j][0];//int_
+          var high = g.neighbors[j][1];//int_
+
+          //neighbors(g->Xlist, j, &low, &high);
+          var pred = predict_point(g.Xlist[j], g.Xlist[low], g.Xlist[high], finalY[low], finalY[high]);//int_
+          var val = finalY[j];//int_
+          var highroom = range - pred;//int_
+          var lowroom = pred;//int_
+          var room = (highroom < lowroom)? highroom * 2 : lowroom * 2;//int_
+
+          if (val) {
+            step2_flag[low] = step2_flag[high] = 1;
+            step2_flag[j] = 1;
+            if (val >= room) {
+              finalY[j] = (highroom > lowroom)? val - lowroom + pred : pred - val + highroom - 1;
+            } else {
+              finalY[j] = (val & 1)? pred - ((val+1)>>>1) : pred + (val>>>1);
             }
+          } else {
+            step2_flag[j] = 0;
+            finalY[j] = pred;
+          }
+        }
 
 //#ifdef STB_VORBIS_NO_DEFER_FLOOR
 //            do_floor(f, map, i, n, f->floor_buffers[i], finalY, step2_flag);
 //#else
             // defer final floor computation until _after_ residue
-            for (j=0; j < g.values; ++j) {
-               if (!step2_flag[j])
-                  finalY[j] = -1;
-            }
+        for (j = 0; j < g.values; ++j) {
+          if (!step2_flag[j]) {
+            finalY[j] = -1;
+          }
+        }
 //#endif
-         } else {
-//           error:
-            zero_channel[i] = true;
-         }
-         // So we just defer everything else to later
-
-         // at this point we've decoded the floor into buffer
+      } else {
+//      error:
+        zero_channel[i] = true;
       }
-   }
-   stb_prof(0);
-   // at this point we've decoded all floors
+      // So we just defer everything else to later
 
-   if (f.alloc.alloc_buffer)
-      assert(f.alloc.alloc_buffer_length_in_bytes == f.temp_offset);
+      // at this point we've decoded the floor into buffer
+    }
+  }
+  stb_prof(0);
+  // at this point we've decoded all floors
 
-   // re-enable coupled channels if necessary
-   memcpy(really_zero_channel, 0, zero_channel, 0, f.channels);//sizeof(really_zero_channel[0]) * 
-   for (i=0; i < map.coupling_steps; ++i)
-      if (!zero_channel[map.chan[i].magnitude] || !zero_channel[map.chan[i].angle]) {
-         zero_channel[map.chan[i].magnitude] = zero_channel[map.chan[i].angle] = false;
-      }
+  if (f.alloc.alloc_buffer) {
+    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  }
 
+  // re-enable coupled channels if necessary
+  memcpy(really_zero_channel, 0, zero_channel, 0, f.channels);//sizeof(really_zero_channel[0]) * 
+  for (i = 0; i < map.coupling_steps; ++i) {
+    if (!zero_channel[map.chan[i].magnitude] || !zero_channel[map.chan[i].angle]) {
+      zero_channel[map.chan[i].magnitude] = zero_channel[map.chan[i].angle] = false;
+    }
+  }
 // RESIDUE DECODE
-   for (i=0; i < map.submaps; ++i) {
-      var residue_buffers=new Array(STB_VORBIS_MAX_CHANNELS);//float *
-      var r=int_,t=int_;
-      var do_not_decode=new Array(256);//uint8
-      var ch = 0;//int_
-      for (j=0; j < f.channels; ++j) {
-         if (map.chan[j].mux == i) {
-            if (zero_channel[j]) {
-               do_not_decode[ch] = true;
-               residue_buffers[ch] = null;
-            } else {
-               do_not_decode[ch] = false;
-               residue_buffers[ch] = f.channel_buffers[j];
-            }
-            ++ch;
-         }
-      }
-      r = map.submap_residue[i];
-      t = f.residue_types[r];
-      decode_residue(f, residue_buffers, ch, n2, r, do_not_decode);
-   }
 
-   if (f.alloc.alloc_buffer)
-      assert(f.alloc.alloc_buffer_length_in_bytes == f.temp_offset);
+  for (i = 0; i < map.submaps; ++i) {
+    var residue_buffers = Array(STB_VORBIS_MAX_CHANNELS);//float *
+    var r = int_, t = int_;
+    var do_not_decode = Array(256);//uint8
+    var ch = 0;//int_
+    for (j = 0; j < f.channels; ++j) {
+      if (map.chan[j].mux === i) {
+        if (zero_channel[j]) {
+          do_not_decode[ch] = true;
+          residue_buffers[ch] = null;
+        } else {
+          do_not_decode[ch] = false;
+          residue_buffers[ch] = f.channel_buffers[j];
+        }
+        ++ch;
+      }
+    }
+    r = map.submap_residue[i];
+    t = f.residue_types[r];
+    decode_residue(f, residue_buffers, ch, n2, r, do_not_decode);
+  }
+
+  if (f.alloc.alloc_buffer) {
+    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  }
 
 // INVERSE COUPLING
-   stb_prof(14);
-   for (i = map.coupling_steps-1; i >= 0; --i) {
-      var n2 = n >>> 1;//int_
-      var m_ = f.channel_buffers[map.chan[i].magnitude];//float_ *
-      var a_ = f.channel_buffers[map.chan[i].angle    ];//float_ *
-      for (j=0; j < n2; ++j) {
-         var a2=float_,m2=float_;
-         if (m_[j] > 0)
-            if (a_[j] > 0)
-               m2 = m_[j], a2 = m_[j] - a_[j];
-            else
-               a2 = m_[j], m2 = m_[j] + a_[j];
-         else
-            if (a_[j] > 0)
-               m2 = m_[j], a2 = m_[j] + a_[j];
-            else
-               a2 = m_[j], m2 = m_[j] - a_[j];
-         m_[j] = m2;
-         a_[j] = a2;
-      }
-   }
-
-   // finish decoding the floors
-//#ifndef STB_VORBIS_NO_DEFER_FLOOR
-   stb_prof(15);
-   for (i=0; i < f.channels; ++i) {
-      if (really_zero_channel[i]) {
-         memset(f.channel_buffers[i], 0, 0, n2);//sizeof(*f->channel_buffers[i]) * 
+  stb_prof(14);
+  for (i = map.coupling_steps-1; i >= 0; --i) {
+    var n2 = n >>> 1;//int_
+    var m_ = f.channel_buffers[map.chan[i].magnitude];//float_ *
+    var a_ = f.channel_buffers[map.chan[i].angle];//float_ *
+    for (j = 0; j < n2; ++j) {
+      var a2 = float_, m2 = float_;
+      if (m_[j] > 0) {
+        if (a_[j] > 0) {
+          m2 = m_[j], a2 = m_[j] - a_[j];
+        } else {
+          a2 = m_[j], m2 = m_[j] + a_[j];
+        }
       } else {
-         do_floor(f, map, i, n, f.channel_buffers[i], f.finalY[i], null);
+        if (a_[j] > 0) {
+          m2 = m_[j], a2 = m_[j] + a_[j];
+        } else {
+          a2 = m_[j], m2 = m_[j] - a_[j];
+        }
       }
-   }
+      m_[j] = m2;
+      a_[j] = a2;
+    }
+  }
+
+  // finish decoding the floors
+//#ifndef STB_VORBIS_NO_DEFER_FLOOR
+  stb_prof(15);
+  for (i = 0; i < f.channels; ++i) {
+    if (really_zero_channel[i]) {
+      memset(f.channel_buffers[i], 0, 0, n2);//sizeof(*f->channel_buffers[i]) * 
+    } else {
+      do_floor(f, map, i, n, f.channel_buffers[i], f.finalY[i], null);
+    }
+  }
 //#else
-//   for (i=0; i < f->channels; ++i) {
+//   for (i = 0; i < f->channels; ++i) {
 //      if (really_zero_channel[i]) {
 //         memset(f->channel_buffers[i], 0, sizeof(*f->channel_buffers[i]) * n2);
 //      } else {
@@ -2824,427 +2826,499 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
 //#endif
 
 // INVERSE MDCT
-   stb_prof(16);
-   for (i=0; i < f.channels; ++i)
-      inverse_mdct(f.channel_buffers[i], n, f, m.blockflag);
-   stb_prof(0);
+  stb_prof(16);
+  for (i = 0; i < f.channels; ++i) {
+    inverse_mdct(f.channel_buffers[i], n, f, m.blockflag);
+  }
+  stb_prof(0);
 
    // this shouldn't be necessary, unless we exited on an error
    // and want to flush to get to the next packet
-   flush_packet(f);
+  flush_packet(f);
 
-   if (f.first_decode) {
-      // assume we start so first non-discarded sample is sample 0
-      // this isn't to spec, but spec would require us to read ahead
-      // and decode the size of all current frames--could be done,
-      // but presumably it's not a commonly used feature
-      f.current_loc = -n2; // start of first frame is positioned for discard
-      // we might have to discard samples "from" the next frame too,
-      // if we're lapping a large block then a small at the start?
-      f.discard_samples_deferred = n - right_end;
-      f.current_loc_valid = true;
-      f.first_decode = false;
-   } else if (f.discard_samples_deferred) {
-      left_start += f.discard_samples_deferred;
-      p_left[0] = left_start;//*
-      f.discard_samples_deferred = 0;
-   } else if (f.previous_length == 0 && f.current_loc_valid) {
-      // we're recovering from a seek... that means we're going to discard
-      // the samples from this packet even though we know our position from
-      // the last page header, so we need to update the position based on
-      // the discarded samples here
-      // but wait, the code below is going to add this in itself even
-      // on a discard, so we don't need to do it here...
-   }
+  if (f.first_decode) {
+    // assume we start so first non-discarded sample is sample 0
+    // this isn't to spec, but spec would require us to read ahead
+    // and decode the size of all current frames--could be done,
+    // but presumably it's not a commonly used feature
+    f.current_loc = -n2; // start of first frame is positioned for discard
+    // we might have to discard samples "from" the next frame too,
+    // if we're lapping a large block then a small at the start?
+    f.discard_samples_deferred = n - right_end;
+    f.current_loc_valid = true;
+    f.first_decode = false;
+  } else if (f.discard_samples_deferred) {
+    left_start += f.discard_samples_deferred;
+    p_left[0] = left_start;//*
+    f.discard_samples_deferred = 0;
+  } /* else if (f.previous_length === 0 && f.current_loc_valid) {
+    // we're recovering from a seek... that means we're going to discard
+    // the samples from this packet even though we know our position from
+    // the last page header, so we need to update the position based on
+    // the discarded samples here
+    // but wait, the code below is going to add this in itself even
+    // on a discard, so we don't need to do it here...
+  } */
 
    // check if we have ogg information about the sample # for this packet
-   if (f.last_seg_which == f.end_seg_with_known_loc) {
-      // if we have a valid current loc, and this is final:
-      if (f.current_loc_valid && (f.page_flag & PAGEFLAG_last_page)) {
-         var current_end = f.known_loc_for_packet - (n-right_end);//uint32
-         // then let's infer the size of the (probably) short final frame
-         if (current_end < f.current_loc + right_end) {
-            if (current_end < f.current_loc) {
-               // negative truncation, that's impossible!
-               len[0] = 0;//*
-            } else {
-               len[0] = current_end - f.current_loc;//*
-            }
-            len[0] += left_start;//*
-            f.current_loc += len[0];//*
-            return true;
-         }
+  if (f.last_seg_which === f.end_seg_with_known_loc) {
+    // if we have a valid current loc, and this is final:
+    if (f.current_loc_valid && (f.page_flag & PAGEFLAG_last_page)) {
+      var current_end = f.known_loc_for_packet - (n-right_end);//uint32
+      // then let's infer the size of the (probably) short final frame
+      if (current_end < f.current_loc + right_end) {
+        if (current_end < f.current_loc) {
+          // negative truncation, that's impossible!
+          len[0] = 0;//*
+        } else {
+          len[0] = current_end - f.current_loc;//*
+        }
+        len[0] += left_start;//*
+        f.current_loc += len[0];//*
+        return true;
       }
-      // otherwise, just set our sample loc
-      // guess that the ogg granule pos refers to the _middle_ of the
-      // last frame?
-      // set f->current_loc to the position of left_start
-      f.current_loc = f.known_loc_for_packet - (n2-left_start);
-      f.current_loc_valid = true;
-   }
-   if (f.current_loc_valid)
-      f.current_loc += (right_start - left_start);
+    }
+    // otherwise, just set our sample loc
+    // guess that the ogg granule pos refers to the _middle_ of the
+    // last frame?
+    // set f->current_loc to the position of left_start
+    f.current_loc = f.known_loc_for_packet - (n2-left_start);
+    f.current_loc_valid = true;
+  }
+  if (f.current_loc_valid) {
+    f.current_loc += (right_start - left_start);
+  }
 
-   if (f.alloc.alloc_buffer)
-      assert(f.alloc.alloc_buffer_length_in_bytes == f.temp_offset);
-   len[0] = right_end;//*  // ignore samples after the window goes to 0
-   return true;
+  if (f.alloc.alloc_buffer) {
+    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  }
+  len[0] = right_end;//*  // ignore samples after the window goes to 0
+  return true;
 }
 
 //3442
-function vorbis_decode_packet(f, len, p_left, p_right)
-{
-   var mode=[int_], left_end=[int_], right_end=[int_];
-   if (!vorbis_decode_initial(f, p_left, left_end, p_right, right_end, mode)) return 0;
-   return vorbis_decode_packet_rest(f, len, f.mode_config[ + mode], p_left[0], left_end[0], p_right[0], right_end[0], p_left);// *p_left, left_end, *p_right, right_end, p_left);
+function vorbis_decode_packet(f, len, p_left, p_right) {
+  var mode = [int_], left_end = [int_], right_end = [int_];
+  if (!vorbis_decode_initial(f, p_left, left_end, p_right, right_end, mode)) {
+    return 0;
+  }
+  return vorbis_decode_packet_rest(f, len, f.mode_config[ + mode], p_left[0], left_end[0], p_right[0], right_end[0], p_left);// *p_left, left_end, *p_right, right_end, p_left);
 }
 
 //3449
-function vorbis_finish_frame(f, len, left, right)
-{
-   var prev=int_,i=int_,j=int_;
-   // we use right&left (the start of the right- and left-window sin()-regions)
-   // to determine how much to return, rather than inferring from the rules
-   // (same result, clearer code); 'left' indicates where our sin() window
-   // starts, therefore where the previous window's right edge starts, and
-   // therefore where to start mixing from the previous buffer. 'right'
-   // indicates where our sin() ending-window starts, therefore that's where
-   // we start saving, and where our returned-data ends.
+function vorbis_finish_frame(f, len, left, right) {
+  var prev = int_, i = int_, j = int_;
+  // we use right&left (the start of the right- and left-window sin()-regions)
+  // to determine how much to return, rather than inferring from the rules
+  // (same result, clearer code); 'left' indicates where our sin() window
+  // starts, therefore where the previous window's right edge starts, and
+  // therefore where to start mixing from the previous buffer. 'right'
+  // indicates where our sin() ending-window starts, therefore that's where
+  // we start saving, and where our returned-data ends.
 
-   // mixin from previous window
-   if (f.previous_length) {
-      var i=int_,j=int_, n = f.previous_length;//int_
-      var w = get_window(f, n);//float_ *
-      for (i=0; i < f.channels; ++i) {
-         for (j=0; j < n; ++j)
-            f.channel_buffers[i][left+j] =
+  // mixin from previous window
+  if (f.previous_length) {
+    var i = int_, j = int_, n = f.previous_length;//int_
+    var w = get_window(f, n);//float_ *
+    for (i = 0; i < f.channels; ++i) {
+      for (j = 0; j < n; ++j) {
+        f.channel_buffers[i][left+j] =
                f.channel_buffers[i][left+j]*w[    j] +
                f.previous_window[i][     j]*w[n-1-j];
       }
-   }
+    }
+  }
 
-   prev = f.previous_length;
+  prev = f.previous_length;
 
-   // last half of this data becomes previous window
-   f.previous_length = len - right;
+  // last half of this data becomes previous window
+  f.previous_length = len - right;
 
-   // @OPTIMIZE: could avoid this copy by double-buffering the
-   // output (flipping previous_window with channel_buffers), but
-   // then previous_window would have to be 2x as large, and
-   // channel_buffers couldn't be temp mem (although they're NOT
-   // currently temp mem, they could be (unless we want to level
-   // performance by spreading out the computation))
-   for (i=0; i < f.channels; ++i)
-      for (j=0; right+j < len; ++j)
-         f.previous_window[i][j] = f.channel_buffers[i][right+j];
+  // @OPTIMIZE: could avoid this copy by double-buffering the
+  // output (flipping previous_window with channel_buffers), but
+  // then previous_window would have to be 2x as large, and
+  // channel_buffers couldn't be temp mem (although they're NOT
+  // currently temp mem, they could be (unless we want to level
+  // performance by spreading out the computation))
+  for (i = 0; i < f.channels; ++i) {
+    for (j = 0; right+j < len; ++j) {
+      f.previous_window[i][j] = f.channel_buffers[i][right+j];
+    }
+  }
 
-   if (!prev)
-      // there was no previous packet, so this data isn't valid...
-      // this isn't entirely true, only the would-have-overlapped data
-      // isn't valid, but this seems to be what the spec requires
-      return 0;
+  if (!prev) {
+    // there was no previous packet, so this data isn't valid...
+    // this isn't entirely true, only the would-have-overlapped data
+    // isn't valid, but this seems to be what the spec requires
+    return 0;
+  }
 
    // truncate a short frame
-   if (len < right) right = len;
+  if (len < right) {
+    right = len;
+  }
 
-   f.samples_output += right-left;
-
-   return right - left;
+  f.samples_output += right-left;
+  return right - left;
 }
 
 //3501
-function vorbis_pump_first_frame(f)
-{
-   var len=[int_], right=[int_], left=[int_];
-   if (vorbis_decode_packet(f, len, left, right))
-      vorbis_finish_frame(f, len[0], left[0], right[0]);
+function vorbis_pump_first_frame(f) {
+  var len=[int_], right=[int_], left=[int_];
+  if (vorbis_decode_packet(f, len, left, right)) {
+    vorbis_finish_frame(f, len[0], left[0], right[0]);
+  }
 }
 
 //3574
-function start_decoder(f)
-{
-   var header=new Array(6), x=uint8,y=uint8;//uint8
-   var len=int_,i=int_,j=int_,k=int_, max_submaps = 0;
-   var longest_floorlist=0;//int_
+function start_decoder(f) {
+  var header = Array(6), x = uint8, y = uint8;//uint8
+  var len = int_, i = int_, j = int_, k = int_, max_submaps = 0;
+  var longest_floorlist = 0;//int_
 
-   // first page, first packet
+  // first page, first packet
+  if (!start_page(f)) {
+    return false;
+  }
+  // validate page flag
+  if (!(f.page_flag & PAGEFLAG_first_page)) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  if (f.page_flag & PAGEFLAG_last_page) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  if (f.page_flag & PAGEFLAG_continued_packet) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  // check for expected packet length
+  if (f.segment_count != 1) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  if (f.segments[0] != 30) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  // read packet
+  // check packet header
+  if (get8(f) != VORBIS_packet_id) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  if (!getn(f, header, 6)) {
+    return error(f, VORBIS_unexpected_eof);
+  }
+  if (!vorbis_validate(header)) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  // vorbis_version
+  if (get32(f) != 0) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  f.channels = get8(f);
+  if (!f.channels) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  if (f.channels > STB_VORBIS_MAX_CHANNELS) {
+    return error(f, VORBIS_too_many_channels);
+  }
+  f.sample_rate = get32(f);
+  if (!f.sample_rate) {
+    return error(f, VORBIS_invalid_first_page);
+  }
+  get32(f); // bitrate_maximum
+  get32(f); // bitrate_nominal
+  get32(f); // bitrate_minimum
+  x = get8(f);
+  {
+    var log0=int_,log1=int_;
+    log0 = x & 15;
+    log1 = x >> 4;
+    f.blocksize_0 = 1 << log0;
+    f.blocksize_1 = 1 << log1;
+    if (log0 < 6 || log0 > 13) {
+      return error(f, VORBIS_invalid_setup);
+    }
+    if (log1 < 6 || log1 > 13) {
+      return error(f, VORBIS_invalid_setup);
+    }
+    if (log0 > log1) {
+      return error(f, VORBIS_invalid_setup);
+    }
+  }
 
-   if (!start_page(f))                              return false;
-   // validate page flag
-   if (!(f.page_flag & PAGEFLAG_first_page))       return error(f, VORBIS_invalid_first_page);
-   if (f.page_flag & PAGEFLAG_last_page)           return error(f, VORBIS_invalid_first_page);
-   if (f.page_flag & PAGEFLAG_continued_packet)    return error(f, VORBIS_invalid_first_page);
-   // check for expected packet length
-   if (f.segment_count != 1)                       return error(f, VORBIS_invalid_first_page);
-   if (f.segments[0] != 30)                        return error(f, VORBIS_invalid_first_page);
-   // read packet
-   // check packet header
-   if (get8(f) != VORBIS_packet_id)                 return error(f, VORBIS_invalid_first_page);
-   if (!getn(f, header, 6))                         return error(f, VORBIS_unexpected_eof);
-   if (!vorbis_validate(header))                    return error(f, VORBIS_invalid_first_page);
-   // vorbis_version
-   if (get32(f) != 0)                               return error(f, VORBIS_invalid_first_page);
-   f.channels = get8(f); if (!f.channels)         return error(f, VORBIS_invalid_first_page);
-   if (f.channels > STB_VORBIS_MAX_CHANNELS)       return error(f, VORBIS_too_many_channels);
-   f.sample_rate = get32(f); if (!f.sample_rate)  return error(f, VORBIS_invalid_first_page);
-   get32(f); // bitrate_maximum
-   get32(f); // bitrate_nominal
-   get32(f); // bitrate_minimum
-   x = get8(f);
-   { var log0=int_,log1=int_;
-   log0 = x & 15;
-   log1 = x >> 4;
-   f.blocksize_0 = 1 << log0;
-   f.blocksize_1 = 1 << log1;
-   if (log0 < 6 || log0 > 13)                       return error(f, VORBIS_invalid_setup);
-   if (log1 < 6 || log1 > 13)                       return error(f, VORBIS_invalid_setup);
-   if (log0 > log1)                                 return error(f, VORBIS_invalid_setup);
-   }
+  // framing_flag
+  x = get8(f);
+  if (!(x & 1)) {
+    return error(f, VORBIS_invalid_first_page);
+  }
 
-   // framing_flag
-   x = get8(f);
-   if (!(x & 1))                                    return error(f, VORBIS_invalid_first_page);
+  // second packet!
+  if (!start_page(f)) {
+    return false;
+  }
 
-   // second packet!
-   if (!start_page(f))                              return false;
-
-   if (!start_packet(f))                            return false;
-   do {
-      len = next_segment(f);
-      skip(f, len);
-      f.bytes_in_seg = 0;
-   } while (len);
+  if (!start_packet(f)) {
+    return false;
+  }
+  do {
+    len = next_segment(f);
+    skip(f, len);
+    f.bytes_in_seg = 0;
+  } while (len);
 
    // third packet!
-   if (!start_packet(f))                            return false;
+  if (!start_packet(f)) {
+    return false;
+  }
 
-   //#ifndef STB_VORBIS_NO_PUSHDATA_API
-   if (IS_PUSH_MODE(f)) {
-      if (!is_whole_packet_present(f, TRUE)) {
-         // convert error in ogg header to write type
-         if (f.error == VORBIS_invalid_stream)
-            f.error = VORBIS_invalid_setup;
-         return false;
+  //#ifndef STB_VORBIS_NO_PUSHDATA_API
+  if (IS_PUSH_MODE(f)) {
+    if (!is_whole_packet_present(f, TRUE)) {
+      // convert error in ogg header to write type
+      if (f.error == VORBIS_invalid_stream) {
+        f.error = VORBIS_invalid_setup;
       }
-   }
-   //#endif
+      return false;
+    }
+  }
+  //#endif
 
-   crc32_init(); // always init it, to avoid multithread race conditions
+  crc32_init(); // always init it, to avoid multithread race conditions
 
-   if (get8_packet(f) != VORBIS_packet_setup)       return error(f, VORBIS_invalid_setup);
-   for (i=0; i < 6; ++i) header[i] = get8_packet(f);
-   if (!vorbis_validate(header))                    return error(f, VORBIS_invalid_setup);
+  if (get8_packet(f) != VORBIS_packet_setup) {
+    return error(f, VORBIS_invalid_setup);
+  }
+  for (i = 0; i < 6; ++i) {
+    header[i] = get8_packet(f);
+  }
+  if (!vorbis_validate(header)) {
+    return error(f, VORBIS_invalid_setup);
+  }
 
-   // codebooks
+  // codebooks
 
-   f.codebook_count = get_bits(f,8) + 1;
-   f.codebooks = Arr_new(f.codebook_count,Codebook);//(Codebook *) setup_malloc(f, sizeof(*f->codebooks) * f->codebook_count);
-   if (f.codebooks == null)                        return error(f, VORBIS_outofmem);
-   //memset(f->codebooks, 0, sizeof(*f->codebooks) * f->codebook_count);
-   for (i=0; i < f.codebook_count; ++i) {
-      var values=uint32;//*
-      var ordered=int_, sorted_count=int_;
-      var total=0;//int_
-      var lengths=uint8;//*
-      var c = f.codebooks[+i];//Codebook *
-      x = get_bits(f, 8); if (x != 0x42)            return error(f, VORBIS_invalid_setup);
-      x = get_bits(f, 8); if (x != 0x43)            return error(f, VORBIS_invalid_setup);
-      x = get_bits(f, 8); if (x != 0x56)            return error(f, VORBIS_invalid_setup);
-      x = get_bits(f, 8);
-      c.dimensions = (get_bits(f, 8)<<8) + x;
-      x = get_bits(f, 8);
-      y = get_bits(f, 8);
-      c.entries = (get_bits(f, 8)<<16) + (y<<8) + x;
-      ordered = get_bits(f,1);
-      c.sparse = ordered ? 0 : get_bits(f,1);
+  f.codebook_count = get_bits(f,8) + 1;
+  f.codebooks = Arr_new(f.codebook_count, Codebook);//(Codebook *) setup_malloc(f, sizeof(*f->codebooks) * f->codebook_count);
 
-      if (c.sparse)
-         lengths = new Array(c.entries);//(uint8 *) setup_temp_malloc(f, c->entries);
-      else
-         lengths = c.codeword_lengths = new Array(c.entries);//(uint8 *) setup_malloc(f, c->entries);
+  //memset(f->codebooks, 0, sizeof(*f->codebooks) * f->codebook_count);
+  for (i = 0; i < f.codebook_count; ++i) {
+    var values = uint32;//*
+    var ordered = int_, sorted_count = int_;
+    var total = 0;//int_
+    var lengths = uint8;//*
+    var c = f.codebooks[+i];//Codebook *
 
-      if (!lengths) return error(f, VORBIS_outofmem);
+    // A codebook begins with a 24 bit sync pattern, 0x564342
+    if (get_bits(f, 8) !== 0x42 || get_bits(f, 8) !== 0x43 || get_bits(f, 8) !== 0x56) {
+      return error(f, VORBIS_invalid_setup);
+    }
 
-      if (ordered) {
-         var current_entry = 0;//int_
-         var current_length = get_bits(f,5) + 1;//int_
-         while (current_entry < c.entries) {
-            var limit = c.entries - current_entry;//int_
-            var n = get_bits(f, ilog(limit));//int_
-            if (current_entry + n > c.entries) { return error(f, VORBIS_invalid_setup); }//(int) 
-            memset(lengths, + current_entry, current_length, n);
-            current_entry += n;
-            ++current_length;
-         }
-      } else {
-         for (j=0; j < c.entries; ++j) {
-            var present = c.sparse ? get_bits(f,1) : 1;//int_
-            if (present) {
-               lengths[j] = get_bits(f, 5) + 1;
-               ++total;
-            } else {
-               lengths[j] = NO_CODE;
-            }
-         }
+    x = get_bits(f, 8);
+    c.dimensions = (get_bits(f, 8)<<8) + x;
+    x = get_bits(f, 8);
+    y = get_bits(f, 8);
+    c.entries = (get_bits(f, 8)<<16) + (y<<8) + x;
+    ordered = get_bits(f,1);
+    c.sparse = ordered ? 0 : get_bits(f,1);
+
+    if (c.sparse) {
+      lengths = Array(c.entries);//(uint8 *) setup_temp_malloc(f, c->entries);
+    } else {
+      lengths = c.codeword_lengths = Array(c.entries);//(uint8 *) setup_malloc(f, c->entries);
+    }
+
+    if (ordered) {
+      var current_entry = 0;//int_
+      var current_length = get_bits(f,5) + 1;//int_
+      while (current_entry < c.entries) {
+        var limit = c.entries - current_entry;//int_
+        var n = get_bits(f, ilog(limit));//int_
+        if (current_entry + n > c.entries) {
+          return error(f, VORBIS_invalid_setup);
+        }
+        memset(lengths, + current_entry, current_length, n);
+        current_entry += n;
+        ++current_length;
       }
-
-      if (c.sparse && total >= c.entries >> 2) {
-         // convert sparse items to non-sparse!
-         if (c.entries > f.setup_temp_memory_required)//(int) 
-            f.setup_temp_memory_required = c.entries;
-
-         c.codeword_lengths = new Array(c.entries);//(uint8 *) setup_malloc(f, c->entries);
-         memcpy(c.codeword_lengths, 0, lengths, 0, c.entries);
-         //setup_temp_free(f, lengths, c->entries); // note this is only safe if there have been no intervening temp mallocs!
-         lengths = c.codeword_lengths;
-         c.sparse = 0;
+    } else {
+      for (j=0; j < c.entries; ++j) {
+        var present = c.sparse ? get_bits(f,1) : 1;//int_
+        if (present) {
+          lengths[j] = get_bits(f, 5) + 1;
+          ++total;
+        } else {
+          lengths[j] = NO_CODE;
+        }
       }
+    }
 
-      // compute the size of the sorted tables
-      if (c.sparse) {
-         sorted_count = total;
-         //assert(total != 0);
-      } else {
-         sorted_count = 0;
-         //#ifndef STB_VORBIS_NO_HUFFMAN_BINARY_SEARCH
-         for (j=0; j < c.entries; ++j)
-            if (lengths[j] > STB_VORBIS_FAST_HUFFMAN_LENGTH && lengths[j] != NO_CODE)
-               ++sorted_count;
-         //#endif
+    if (c.sparse && total >= c.entries >> 2) {
+      // convert sparse items to non-sparse!
+      if (c.entries > f.setup_temp_memory_required)//(int) 
+        f.setup_temp_memory_required = c.entries;
+
+      c.codeword_lengths = Array(c.entries);//(uint8 *) setup_malloc(f, c->entries);
+      memcpy(c.codeword_lengths, 0, lengths, 0, c.entries);
+      //setup_temp_free(f, lengths, c->entries); // note this is only safe if there have been no intervening temp mallocs!
+      lengths = c.codeword_lengths;
+      c.sparse = 0;
+    }
+
+    // compute the size of the sorted tables
+    if (c.sparse) {
+      sorted_count = total;
+      //assert(total != 0);
+    } else {
+      sorted_count = 0;
+      //#ifndef STB_VORBIS_NO_HUFFMAN_BINARY_SEARCH
+      for (j=0; j < c.entries; ++j) {
+        if (lengths[j] > STB_VORBIS_FAST_HUFFMAN_LENGTH && lengths[j] != NO_CODE) {
+          ++sorted_count;
+        }
       }
+      //#endif
+    }
 
-      c.sorted_entries = sorted_count;
-      values = null;
+    c.sorted_entries = sorted_count;
+    values = null;
 
-      if (!c.sparse) {
-         c.codewords = new Array(c.entries);//(uint32 *) setup_malloc(f, sizeof(c->codewords[0]) * c->entries);
-         if (!c.codewords)                  return error(f, VORBIS_outofmem);
-      } else {
-         var size=int_;//unsigned
-         if (c.sorted_entries) {
-            c.codeword_lengths = new Array(c.sorted_entries);//(uint8 *) setup_malloc(f, c->sorted_entries);
-            if (!c.codeword_lengths)           return error(f, VORBIS_outofmem);
-            c.codewords = new Array(c.sorted_entries);//(uint32 *) setup_temp_malloc(f, sizeof(*c->codewords) * c->sorted_entries);
-            if (!c.codewords)                  return error(f, VORBIS_outofmem);
-            values = new Array(c.sorted_entries);//(uint32 *) setup_temp_malloc(f, sizeof(*values) * c->sorted_entries);
-            if (!values)                        return error(f, VORBIS_outofmem);
-         }
-         size = c.entries + /*(sizeof(*c->codewords) + sizeof(*values)) * */c.sorted_entries;
-         if (size > f.setup_temp_memory_required)
-            f.setup_temp_memory_required = size;
-      }
-
-      if (!compute_codewords(c, lengths, c.entries, values)) {
-         if (c.sparse) setup_temp_free(f, values, 0);
-         return error(f, VORBIS_invalid_setup);
-      }
-
+    if (!c.sparse) {
+      c.codewords = Array(c.entries);//(uint32 *) setup_malloc(f, sizeof(c->codewords[0]) * c->entries);
+    } else {
+      var size = int_;//unsigned
       if (c.sorted_entries) {
-         // allocate an extra slot for sentinels
-         c.sorted_codewords = new Array(c.sorted_entries+1);//(uint32 *) setup_malloc(f, sizeof(*c->sorted_codewords) * (c->sorted_entries+1));
-         // allocate an extra slot at the front so that c->sorted_values[-1] is defined
-         // so that we can catch that case without an extra if
-         c.sorted_values    = new Array(c.sorted_entries+1);//( int   *) setup_malloc(f, sizeof(*c->sorted_values   ) * (c->sorted_entries+1));
-         if (c.sorted_values) { ++c.sorted_values_off; c.sorted_values[c.sorted_values_off -1] = -1; }
-         compute_sorted_huffman(c, lengths, values);
+        c.codeword_lengths = Array(c.sorted_entries);//(uint8 *) setup_malloc(f, c->sorted_entries);
+        c.codewords = Array(c.sorted_entries);//(uint32 *) setup_temp_malloc(f, sizeof(*c->codewords) * c->sorted_entries);
+        values = Array(c.sorted_entries);//(uint32 *) setup_temp_malloc(f, sizeof(*values) * c->sorted_entries);
       }
+      size = c.entries + /*(sizeof(*c->codewords) + sizeof(*values)) * */c.sorted_entries;
+      if (size > f.setup_temp_memory_required) {
+        f.setup_temp_memory_required = size;
+      }
+    }
 
+    if (!compute_codewords(c, lengths, c.entries, values)) {
       if (c.sparse) {
-         //setup_temp_free(f, values, sizeof(*values)*c->sorted_entries);
-         //setup_temp_free(f, c->codewords, sizeof(*c->codewords)*c->sorted_entries);
-         //setup_temp_free(f, lengths, c->entries);
-         c.codewords = null;
+        setup_temp_free(f, values, 0);
       }
+      return error(f, VORBIS_invalid_setup);
+    }
 
-      compute_accelerated_huffman(c);
+    if (c.sorted_entries) {
+      // allocate an extra slot for sentinels
+      c.sorted_codewords = Array(c.sorted_entries+1);//(uint32 *) setup_malloc(f, sizeof(*c->sorted_codewords) * (c->sorted_entries+1));
+      // allocate an extra slot at the front so that c->sorted_values[-1] is defined
+      // so that we can catch that case without an extra if
+      c.sorted_values = Array(c.sorted_entries+1);//( int   *) setup_malloc(f, sizeof(*c->sorted_values   ) * (c->sorted_entries+1));
+      if (c.sorted_values) {
+        ++c.sorted_values_off;
+        c.sorted_values[c.sorted_values_off -1] = -1;
+      }
+      compute_sorted_huffman(c, lengths, values);
+    }
 
-      c.lookup_type = get_bits(f, 4);
-      if (c.lookup_type > 2) return error(f, VORBIS_invalid_setup);
-      if (c.lookup_type > 0) {
-         var mults=uint16;//*
-         c.minimum_value = float32_unpack(get_bits(f, 32));
-         c.delta_value = float32_unpack(get_bits(f, 32));
-         c.value_bits = get_bits(f, 4)+1;
-         c.sequence_p = get_bits(f,1);
-         if (c.lookup_type == 1) {
-            c.lookup_values = lookup1_values(c.entries, c.dimensions);
-         } else {
-            c.lookup_values = c.entries * c.dimensions;
-         }
-         mults = new Array(c.lookup_values);//(uint16 *) setup_temp_malloc(f, sizeof(mults[0]) * c->lookup_values);
-         if (mults == null) return error(f, VORBIS_outofmem);
-         for (j=0; j < c.lookup_values; ++j) {//(int_) 
-            var q = get_bits(f, c.value_bits);//int_
-            if (q == EOP) { /*setup_temp_free(f,mults,sizeof(mults[0])*c->lookup_values);*/ return error(f, VORBIS_invalid_setup); }
-            mults[j] = q;
-         }
+    if (c.sparse) {
+      //setup_temp_free(f, values, sizeof(*values)*c->sorted_entries);
+      //setup_temp_free(f, c->codewords, sizeof(*c->codewords)*c->sorted_entries);
+      //setup_temp_free(f, lengths, c->entries);
+      c.codewords = null;
+    }
+
+    compute_accelerated_huffman(c);
+
+    c.lookup_type = get_bits(f, 4);
+    if (c.lookup_type > 2) {
+      return error(f, VORBIS_invalid_setup);
+    }
+    if (c.lookup_type > 0) {
+      var mults=uint16;//*
+      c.minimum_value = float32_unpack(get_bits(f, 32));
+      c.delta_value = float32_unpack(get_bits(f, 32));
+      c.value_bits = get_bits(f, 4)+1;
+      c.sequence_p = get_bits(f,1);
+      if (c.lookup_type === 1) {
+        c.lookup_values = lookup1_values(c.entries, c.dimensions);
+      } else {
+        c.lookup_values = c.entries * c.dimensions;
+      }
+      mults = Array(c.lookup_values);//(uint16 *) setup_temp_malloc(f, sizeof(mults[0]) * c->lookup_values);
+      for (j = 0; j < c.lookup_values; ++j) {
+        var q = get_bits(f, c.value_bits);//int_
+        if (q == EOP) { /*setup_temp_free(f,mults,sizeof(mults[0])*c->lookup_values);*/
+          return error(f, VORBIS_invalid_setup);
+        }
+        mults[j] = q;
+      }
 
 //#ifndef STB_VORBIS_DIVIDES_IN_CODEBOOK
-         if (c.lookup_type == 1) {
-            var len=int_, sparse = c.sparse;//int_
-			var goto_skip = false;
-            // pre-expand the lookup1-style multiplicands, to avoid a divide in the inner loop
-            if (sparse) {
-               if (c.sorted_entries == 0) goto_skip=true; else
-               c.multiplicands = new Array(c.sorted_entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->sorted_entries * c->dimensions);
-            } else
-               c.multiplicands = new Array(c.entries        * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->entries        * c->dimensions);
-            if (!goto_skip) {
-            if (c.multiplicands == null) { /*setup_temp_free(f,mults,sizeof(mults[0])*c->lookup_values);*/ return error(f, VORBIS_outofmem); }
-            len = sparse ? c.sorted_entries : c.entries;
-            for (j=0; j < len; ++j) {
-               var z = sparse ? c.sorted_values[j] : j, div=1;//int_
-               for (k=0; k < c.dimensions; ++k) {
-                  var off = parseInt(z / div,10) % c.lookup_values;//int_
-                  c.multiplicands[j*c.dimensions + k] =
-//                         #ifndef STB_VORBIS_CODEBOOK_FLOATS
-//                            mults[off];
-//                         #else
-                            mults[off]*c.delta_value + c.minimum_value;
-                            // in this case (and this case only) we could pre-expand c->sequence_p,
-                            // and throw away the decode logic for it; have to ALSO do
-                            // it in the case below, but it can only be done if
-                            //    STB_VORBIS_CODEBOOK_FLOATS
-                            //   !STB_VORBIS_DIVIDES_IN_CODEBOOK
-//                         #endif
-                  div *= c.lookup_values;
-               }
-            }
-            //setup_temp_free(f, mults,sizeof(mults[0])*c->lookup_values);
-            c.lookup_type = 2;
-			}
-         }
-         else
-//#endif
-         {
-            c.multiplicands = new Array(c.lookup_values);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->lookup_values);
+      if (c.lookup_type == 1) {
+        var len = int_, sparse = c.sparse;//int_
+        var goto_skip = false;
+        // pre-expand the lookup1-style multiplicands, to avoid a divide in the inner loop
+        if (sparse) {
+          if (c.sorted_entries == 0) {
+            goto_skip = true;
+          } else {
+            c.multiplicands = Array(c.sorted_entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->sorted_entries * c->dimensions);
+          }
+        } else {
+          c.multiplicands = Array(c.entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->entries        * c->dimensions);
+        }
+        if (!goto_skip) {
+          len = sparse ? c.sorted_entries : c.entries;
+          for (j = 0; j < len; ++j) {
+            var z = sparse ? c.sorted_values[j] : j, div = 1;//int_
+            for (k = 0; k < c.dimensions; ++k) {
+              var off = parseInt(z / div,10) % c.lookup_values;//int_
+              c.multiplicands[j*c.dimensions + k] =
 //            #ifndef STB_VORBIS_CODEBOOK_FLOATS
-//            memcpy(c->multiplicands, mults, sizeof(c->multiplicands[0]) * c->lookup_values);
+//              mults[off];
 //            #else
-            for (j=0; j < c.lookup_values; ++j)//(int_) 
-               c.multiplicands[j] = mults[j] * c.delta_value + c.minimum_value;
-            //setup_temp_free(f, mults,sizeof(mults[0])*c->lookup_values);
+              mults[off]*c.delta_value + c.minimum_value;
+              // in this case (and this case only) we could pre-expand c->sequence_p,
+              // and throw away the decode logic for it; have to ALSO do
+              // it in the case below, but it can only be done if
+              //    STB_VORBIS_CODEBOOK_FLOATS
+              //   !STB_VORBIS_DIVIDES_IN_CODEBOOK
 //            #endif
-         }
-//        skip:;
-
-         //#ifdef STB_VORBIS_CODEBOOK_FLOATS
-         if (c.lookup_type == 2 && c.sequence_p) {
-            for (j=1; j < c.lookup_values; ++j)//(int_) 
-               c.multiplicands[j] = c.multiplicands[j-1];
-            c.sequence_p = 0;
-         }
-         //#endif
+              div *= c.lookup_values;
+            }
+          }
+          //setup_temp_free(f, mults,sizeof(mults[0])*c->lookup_values);
+          c.lookup_type = 2;
+        }
+      } else {
+//#endif
+        c.multiplicands = Array(c.lookup_values);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->lookup_values);
+//      #ifndef STB_VORBIS_CODEBOOK_FLOATS
+//      memcpy(c->multiplicands, mults, sizeof(c->multiplicands[0]) * c->lookup_values);
+//      #else
+        for (j = 0; j < c.lookup_values; ++j) {
+          c.multiplicands[j] = mults[j] * c.delta_value + c.minimum_value;
+          //setup_temp_free(f, mults,sizeof(mults[0])*c->lookup_values);
+        }
+//      #endif
       }
-   }
+//    skip:;
 
-   // time domain transfers (notused)
+//#ifdef STB_VORBIS_CODEBOOK_FLOATS
+      if (c.lookup_type === 2 && c.sequence_p) {
+        for (j = 1; j < c.lookup_values; ++j) { 
+          c.multiplicands[j] = c.multiplicands[j-1];
+        }
+        c.sequence_p = 0;
+      }
+//#endif
+    }
+  }
 
-   x = get_bits(f, 6) + 1;
-   for (i=0; i < x; ++i) {
-      var z = get_bits(f, 16);//uint32
-      if (z != 0) return error(f, VORBIS_invalid_setup);
-   }
+  // time domain transfers (notused)
+
+  x = get_bits(f, 6) + 1;
+  for (i = 0; i < x; ++i) {
+    var z = get_bits(f, 16);//uint32
+    if (z !== 0) {
+      return error(f, VORBIS_invalid_setup);
+    }
+  }
 
    // Floors
    f.floor_count = get_bits(f, 6)+1;
@@ -3430,8 +3504,11 @@ function start_decoder(f)
 
    for (i=0; i < f.channels; ++i) {
       f.channel_buffers[i] = new Array(f.blocksize_1);//(float *) setup_malloc(f, sizeof(float) * f->blocksize_1);
+      // f.channel_buffers[i] = new Float32Array(f.blocksize_1);
       f.previous_window[i] = new Array(parseInt(f.blocksize_1/2,10));//(float *) setup_malloc(f, sizeof(float) * f->blocksize_1/2);
+      // f.previous_window[i] = new Float32Array(parseInt(f.blocksize_1/2,10));
       f.finalY[i]          = new Array(longest_floorlist);//(int16 *) setup_malloc(f, sizeof(int16) * longest_floorlist);
+      // f.finalY[i]          = new Int16Array(longest_floorlist);
 //      #ifdef STB_VORBIS_NO_DEFER_FLOOR
 //      f->floor_buffers[i]   = (float *) setup_malloc(f, sizeof(float) * f->blocksize_1/2);
 //      #endif
@@ -3489,368 +3566,168 @@ function start_decoder(f)
 }
 
 //4154
-function vorbis_init(p, z)
-{
-   //memset(p, 0, sizeof(*p)); // NULL out all malloc'd pointers to start
-   if (z) {
-      p.alloc = z;//*
-      p.alloc.alloc_buffer_length_in_bytes = (p.alloc.alloc_buffer_length_in_bytes+3) & ~3;
-      p.temp_offset = p.alloc.alloc_buffer_length_in_bytes;
-   }
-   p.eof = 0;
-   p.error = VORBIS__no_error;
-   p.stream = null;
-   p.codebooks = null;
-   p.page_crc_tests = -1;
-   //#ifndef STB_VORBIS_NO_STDIO
-   p.close_on_free = false;
-   p.f = null;
-   //#endif
+function vorbis_init(p, z) {
+  //memset(p, 0, sizeof(*p)); // NULL out all malloc'd pointers to start
+  if (z) {
+    p.alloc = z;//*
+    p.alloc.alloc_buffer_length_in_bytes = (p.alloc.alloc_buffer_length_in_bytes+3) & ~3;
+    p.temp_offset = p.alloc.alloc_buffer_length_in_bytes;
+  }
+  p.eof = 0;
+  p.error = VORBIS__no_error;
+  p.stream = null;
+  p.codebooks = null;
+  p.page_crc_tests = -1;
+  //#ifndef STB_VORBIS_NO_STDIO
+  p.close_on_free = false;
+  p.f = null;
+  //#endif
 }
 
 //4200
-function vorbis_alloc(f)
-{
-   var p = new stb_vorbis();//(stb_vorbis *) setup_malloc(f, sizeof(*p));//stb_vorbis *
-   return p;
+function vorbis_alloc(f) {
+  return new stb_vorbis();//(stb_vorbis *) setup_malloc(f, sizeof(*p));//stb_vorbis *
 }
 
 //4411
-function stb_vorbis_get_file_offset(f)
-{
-   //#ifndef STB_VORBIS_NO_PUSHDATA_API
-   if (f.push_mode) return 0;
-   //#endif
-   if (USE_MEMORY(f)) return f.stream - f.stream_start;
-   //#ifndef STB_VORBIS_NO_STDIO
-   return ftell(f.f) - f.f_start;
-   //#endif
-}
-
-//4935
-function stb_vorbis_get_frame_float(f, channels, output)
-{
-   var len=[int_], right=[int_],left=[int_],i=int_;
-   if (IS_PUSH_MODE(f)) return error(f, VORBIS_invalid_api_mixing);
-
-   if (!vorbis_decode_packet(f, len, left, right)) {//,&,&,&
-      f.channel_buffer_start = f.channel_buffer_end = 0;
-      return 0;
-   }
-
-   len = vorbis_finish_frame(f, len[0], left[0], right[0]);
-   for (i=0; i < f.channels; ++i)
-      f.outputs[i] = f.channel_buffers[i].slice( + left);
-
-   f.channel_buffer_start = left;
-   f.channel_buffer_end   = left+len;
-
-   if (channels) channels[0] = f.channels;//*
-   if (output)   output[0] = f.outputs;//*
-   return len;
+function stb_vorbis_get_file_offset(f) {
+  //#ifndef STB_VORBIS_NO_PUSHDATA_API
+  if (f.push_mode) {
+    return 0;
+  }
+  //#endif
+  if (USE_MEMORY(f)) {
+    return f.stream - f.stream_start;
+  }
+  //#ifndef STB_VORBIS_NO_STDIO
+  return ftell(f.f) - f.f_start;
+  //#endif
 }
 
 //#ifndef STB_VORBIS_NO_STDIO
 
 //4959
-function stb_vorbis_open_file_section(file, close_on_free, error, alloc, length)
-{
-   var f=new stb_vorbis(), p=new stb_vorbis();//*
-   vorbis_init(p, alloc);
-   p.f = file;
-   p.f_start = ftell(file);
-   p.stream_len   = length;
-   p.close_on_free = close_on_free;
-   if (start_decoder(p)) {
-      f = vorbis_alloc(p);
-      if (f) {
-         f = p;//* = 
-         vorbis_pump_first_frame(f);
-         return f;
-      }
-   }
-   if (error) error[0] = p.error;//*
-   //vorbis_deinit(p);//&
-   return null;
+function stb_vorbis_open_file_section(file, close_on_free, error, alloc, length) {
+  var f = new stb_vorbis();
+  var p = new stb_vorbis();
+  vorbis_init(p, alloc);
+  p.f = file;
+  p.f_start = ftell(file);
+  p.stream_len   = length;
+  p.close_on_free = close_on_free;
+  if (start_decoder(p)) {
+    f = vorbis_alloc(p);
+    if (f) {
+      f = p;//* = 
+      vorbis_pump_first_frame(f);
+      return f;
+    }
+  }
+  if (error) error[0] = p.error;//*
+  //vorbis_deinit(p);//&
+  return null;
 }
 
 //4980
-function stb_vorbis_open_file(file, close_on_free, error, alloc)
-{
-   var len=int_, start=int_;//unsigned
-   //start = ftell(file);
-   //fseek(file, 0, SEEK_END);
-   len = file._ptr.length;//ftell(file) - start;
-   //fseek(file, start, SEEK_SET);
-   return stb_vorbis_open_file_section(file, close_on_free, error, alloc, len);
+function stb_vorbis_open_file(file, close_on_free, error, alloc) {
+  var len = int_, start = int_;//unsigned
+  //start = ftell(file);
+  //fseek(file, 0, SEEK_END);
+  len = file._ptr.length;//ftell(file) - start;
+  //fseek(file, start, SEEK_SET);
+  return stb_vorbis_open_file_section(file, close_on_free, error, alloc, len);
 }
 
 //4990
-function stb_vorbis_open_filename(filename, error, alloc)
-{
-   var f = fopen(filename, "rb");//FILE *
-   if (f) 
-      return stb_vorbis_open_file(f, true, error, alloc);
-   if (error) error[0] = VORBIS_file_open_failure;//*
-   return null;
+function stb_vorbis_open_filename(filename, error, alloc) {
+  var f = fopen(filename, "rb");//FILE *
+  if (f) {
+    return stb_vorbis_open_file(f, true, error, alloc);
+  }
+  if (error) {
+    error[0] = VORBIS_file_open_failure;//*
+  }
+  return null;
 }
 //#endif // STB_VORBIS_NO_STDIO
 
-//5062
-function copy_samples(dest, dest_off, src, len)
-{
-   var i=int_;
-   //check_endianness();
-   for (i=0; i < len; ++i) {
-      //FASTDEF(temp);
-      var v = Math.round(src[i]*32768);//int_ //FAST_SCALED_FLOAT_TO_INT(temp, src[i],15);
-      if ((v + 32768) > 65535)//(unsigned int_) 
-         v = v < 0 ? -32768 : 32767;
-      dest[dest_off++] = v&0xff;//+i
-      dest[dest_off++] = v>>>8&0xff;//+i
-   }
+
+//4935
+function stb_vorbis_get_frame_float(f, channels, buffer) {
+  var len = [int_], right = [int_], left = [int_];
+  if (IS_PUSH_MODE(f)) return error(f, VORBIS_invalid_api_mixing);
+
+  if (!vorbis_decode_packet(f, len, left, right)) {//,&,&,&
+    f.channel_buffer_start = f.channel_buffer_end = 0;
+    return 0;
+  }
+
+  len = vorbis_finish_frame(f, len[0], left[0], right[0]);
+  var dest_off = left[0];
+  for (var i = 0; i < f.channels; ++i) {
+  // #1
+    var src_buff = f.channel_buffers[i];
+    var dest_buff = buffer[i];
+    for (var j = 0; j < len; j++) {
+      dest_buff.push(src_buff[dest_off + j]);
+    }
+
+  // #2
+    // buffer[i].push(f.channel_buffers[i].slice(dest_off, dest_off+len));
+  }
+
+  f.channel_buffer_start = left;
+  f.channel_buffer_end   = left+len;
+
+  if (channels) {
+    channels[0] = f.channels;//*
+  }
+  // if (output) {
+  //   output[0] = f.outputs;//*
+  // }
+  return len;
 }
 
-//5075
-/*static void compute_samples(int mask, short *output, int num_c, float **data, int d_offset, int len)
-{
-   #define BUFFER_SIZE  32
-   float buffer[BUFFER_SIZE];
-   int i,j,o,n = BUFFER_SIZE;
-   check_endianness();
-   for (o = 0; o < len; o += BUFFER_SIZE) {
-      memset(buffer, 0, sizeof(buffer));
-      if (o + n > len) n = len - o;
-      for (j=0; j < num_c; ++j) {
-         if (channel_position[num_c][j] & mask) {
-            for (i=0; i < n; ++i)
-               buffer[i] += data[j][d_offset+o+i];
-         }
-      }
-      for (i=0; i < n; ++i) {
-         FASTDEF(temp);
-         int v = FAST_SCALED_FLOAT_TO_INT(temp,buffer[i],15);
-         if ((unsigned int) (v + 32768) > 65535)
-            v = v < 0 ? -32768 : 32767;
-         output[o+i] = v;
-      }
-   }
-}*/
-
-//5100
-/*static int channel_selector[3][2] = { {0}, {PLAYBACK_MONO}, {PLAYBACK_LEFT, PLAYBACK_RIGHT} };*/
-//5101
-/*static void compute_stereo_samples(short *output, int num_c, float **data, int d_offset, int len)
-{
-   #define BUFFER_SIZE  32
-   float buffer[BUFFER_SIZE];
-   int i,j,o,n = BUFFER_SIZE >> 1;
-   // o is the offset in the source data
-   check_endianness();
-   for (o = 0; o < len; o += BUFFER_SIZE >> 1) {
-      // o2 is the offset in the output data
-      int o2 = o << 1;
-      memset(buffer, 0, sizeof(buffer));
-      if (o + n > len) n = len - o;
-      for (j=0; j < num_c; ++j) {
-         int m = channel_position[num_c][j] & (PLAYBACK_LEFT | PLAYBACK_RIGHT);
-         if (m == (PLAYBACK_LEFT | PLAYBACK_RIGHT)) {
-            for (i=0; i < n; ++i) {
-               buffer[i*2+0] += data[j][d_offset+o+i];
-               buffer[i*2+1] += data[j][d_offset+o+i];
-            }
-         } else if (m == PLAYBACK_LEFT) {
-            for (i=0; i < n; ++i) {
-               buffer[i*2+0] += data[j][d_offset+o+i];
-            }
-         } else if (m == PLAYBACK_RIGHT) {
-            for (i=0; i < n; ++i) {
-               buffer[i*2+1] += data[j][d_offset+o+i];
-            }
-         }
-      }
-      for (i=0; i < (n<<1); ++i) {
-         FASTDEF(temp);
-         int v = FAST_SCALED_FLOAT_TO_INT(temp,buffer[i],15);
-         if ((unsigned int) (v + 32768) > 65535)
-            v = v < 0 ? -32768 : 32767;
-         output[o2+i] = v;
-      }
-   }
-}*/
-
-//5140
-function convert_samples_short(buf_c, buffer, buffer_off, b_offset, data_c, data, d_offset, samples)
-{
-   var i=int_;
-   if (buf_c != data_c && buf_c <= 2 && data_c <= 6) {alert('Not implemented #1');
-//      static int channel_selector[3][2] = { {0}, {PLAYBACK_MONO}, {PLAYBACK_LEFT, PLAYBACK_RIGHT} };
-//      for (i=0; i < buf_c; ++i)
-//         compute_samples(channel_selector[buf_c][i], buffer[i]+b_offset, data_c, data, d_offset, samples);
-   } else {
-      var limit = buf_c < data_c ? buf_c : data_c;//int_
-      for (i=0; i < limit; ++i)
-         copy_samples(buffer,buffer_off+(i)+b_offset, data[i], samples);
-      for (   ; i < buf_c; ++i)
-         memset(buffer,buffer_off+(i)+b_offset, 0, samples);//sizeof(short_) * 
-   }
-}
-
-//5156
-function stb_vorbis_get_frame_short(f, num_c, buffer, buffer_off, num_samples)
-{
-
-   var output=[float_];//**
-   var len = stb_vorbis_get_frame_float(f, null, output);//int_,&
-   if (len > num_samples) len = num_samples;
-   if (len)
-      convert_samples_short(num_c, buffer, buffer_off, 0, f.channels, output[0], 0, len);
-   return len;
-}
-
-//5166
-function convert_channels_short_interleaved(buf_c, buffer, buffer_off, data_c, data, d_offset, len)
-{
-   var i=int_;
-   //check_endianness();
-   if (buf_c != data_c && buf_c <= 2 && data_c <= 6) {alert('Not implemented #2');
-//      assert(buf_c == 2);
-//      for (i=0; i < buf_c; ++i)
-//         compute_stereo_samples(buffer, data_c, data, d_offset, len);
-   } else {
-      var limit = buf_c < data_c ? buf_c : data_c;//int_
-      var j=int_;
-      for (j=0; j < len; ++j) {
-         for (i=0; i < limit; ++i) {
-            //FASTDEF(temp);
-            var f = data[i][d_offset+j];//float_
-            var v = Math.round(f*32768);//int_ //FAST_SCALED_FLOAT_TO_INT(temp, f,15);//data[i][d_offset+j],15);
-            if ((v + 32768) > 65535)//(unsigned int_) 
-               v = v < 0 ? -32768 : 32767;
-            buffer[buffer_off++] = v&0xff;//*
-            buffer[buffer_off++] = v>>>8&0xff;//*
-         }
-         for (   ; i < buf_c; ++i) {
-            buffer[buffer_off++] = 0;//*
-            buffer[buffer_off++] = 0;//*
-		 }
-      }
-   }
-}
-
-//5192
-function stb_vorbis_get_frame_short_interleaved(f, num_c, buffer, buffer_off, num_shorts)
-{
-   var output=[float_];//**
-   var len=int_;
-   if (num_c == 1) return stb_vorbis_get_frame_short(f,num_c,buffer,buffer_off, num_shorts);//&
-   len = stb_vorbis_get_frame_float(f, null, output);
-   if (len) {
-      if (len*num_c > num_shorts) len = parseInt(num_shorts / num_c, 10);
-      convert_channels_short_interleaved(num_c, buffer, buffer_off, f.channels, output[0], 0, len);
-   }
-   return len;
+function stb_vorbis_get_frame(f, num_c, buffer, buffer_off, num_samples) {
+  var len = stb_vorbis_get_frame_float(f, null, buffer);
+  if (len*num_c > num_samples) {
+    console.log('BAD BAD CODE')
+    len = parseInt(num_samples / num_c, 10);
+  }
+  return len;
 }
 
 //5245
 //#ifndef STB_VORBIS_NO_STDIO
-function stb_vorbis_decode_filename(filename, channels, output)
-{
-   var data_len=int_, offset=int_, total=int_, limit=int_, error=[int_];
-   var data=short_;//*
-   var v = stb_vorbis_open_filename(filename, error, null);//stb_vorbis *
-   if (v == null) return -1;
-   //var buffer_time = 4; //seconds
-   limit = v.channels * 4096;
-   channels[0] = v.channels;//*
-   function sound_Chunk(rest, data) {
-   if (data)
-      var dataURI = "data:audio/wav;base64,"+(btoa(uint8ToString(data)));//escape
-   offset = data_len = 0;
-   data_len = rest.length/v.channels/2;//0;
-   offset = 44+rest.length; //add by d (WAVE-HEADER)
-   total = limit;
-   data = (new Array(44)).concat(rest);//new Array(total);//(short *) malloc(total * sizeof(*data));
-   if (data == null) {
-      //stb_vorbis_close(v);
-      return -2;
-   }
-   for (;;) {
-      var n = stb_vorbis_get_frame_short_interleaved(v, v.channels, data,+offset, total-offset);//int_
-	  //document.writeln(n+"\n");
-      if (n == 0) break;
-      data_len += n;
-      offset += n * v.channels*2;
-	  if (data_len>v.sample_rate*buffer_time) break;
-      if (offset + limit > total) {
-         var data2=short_;//*
-         total *= 2*2;
-         data2 = data;data.length=total;//(short *) realloc(data, total * sizeof(*data));
-         if (data2 == null) {
-            free(data);
-            stb_vorbis_close(v);
-            return -2;
-         }
-         data = data2;
-      }
-   }
-   data.length = offset;
-   var rest = data.splice(v.channels*2 * v.sample_rate*buffer_time+44); data_len = data_len<v.sample_rate*buffer_time?data_len:v.sample_rate*buffer_time;
-   write_prelim_header(v, data, data_len);
-   dataURI && playbackSound(dataURI);
-   n>0 && setTimeout(function(){
-   sound_Chunk(rest, data);},dataURI?buffer_time*1000:0);
-   }
-   sound_Chunk([]);
-   output[0] = data;//*
-   return data_len;
+function stb_vorbis_decode_filename(filename) {
+  var data_len = int_, offset = int_, total = int_, limit = int_, error = [int_];
+  var v = stb_vorbis_open_filename(filename, error, null);//stb_vorbis *
+  if (v == null) return -1;
+
+  //var buffer_time = 4; //seconds
+  limit = v.channels * 4096;
+
+  offset = data_len = 0;
+  total = limit;
+  var data = Arr_new(v.channels, Array);
+
+  for (;;) {
+    var n = stb_vorbis_get_frame(v, v.channels, data,+offset, total-offset);
+    if (n == 0) break;
+
+    data_len += n;
+    offset += n * v.channels*2;
+    if (data_len > v.sample_rate*buffer_time) break;
+
+    if (offset + limit > total) {
+      total *= 2*2;
+    }
+  }
+
+  v.data = data;
+  // console.log('size: '+v.samples_output);
+  return v;
 }
 //#endif // NO_STDIO
-
-var bits = 16;//static int_
-function WRITE_U32(buf, buf_off, x) { buf[buf_off]     = x&0xff;
-                          buf[buf_off+1] = x>>>8&0xff;
-                          buf[buf_off+2] = x>>>16&0xff;
-                          buf[buf_off+3] = x>>>24&0xff;
-}
-
-function WRITE_U16(buf, buf_off, x) { buf[buf_off]     = x&0xff;
-                          buf[buf_off+1] = x>>>8&0xff;
-}
-
-/* Some of this based on ao/src/ao_wav.c */
-function write_prelim_header(v, headbuf, knownlength) {
-    var size = 0x7fffffff;//unsigned int_
-    var channels = v.channels;//ov_info(vf,0)->channels;//int_
-    var samplerate = v.sample_rate;//ov_info(vf,0)->rate;//int_
-    var bytespersec = channels*samplerate*bits/8;//int_
-    var align = channels*bits/8;//int_
-    var samplesize = bits;//int_
-
-    if(knownlength && knownlength*bits/8*channels < size)
-        size = (knownlength*bits/8*channels+44) ;//(unsigned int_)
-
-    memcpy(headbuf, 0, new Array(82,73,70,70), 0, 4);//"RIFF"
-    WRITE_U32(headbuf,+4, size-8);
-    memcpy(headbuf,+8, new Array(87,65,86,69), 0, 4);//"WAVE"
-    memcpy(headbuf,+12, new Array(102,109,116,32), 0, 4);//"fmt "
-    WRITE_U32(headbuf,+16, 16);
-    WRITE_U16(headbuf,+20, 1); /* format */
-    WRITE_U16(headbuf,+22, channels);
-    WRITE_U32(headbuf,+24, samplerate);
-    WRITE_U32(headbuf,+28, bytespersec);
-    WRITE_U16(headbuf,+32, align);
-    WRITE_U16(headbuf,+34, samplesize);
-    memcpy(headbuf,+36, new Array(100,97,116,97), 0, 4);//"data"
-    WRITE_U32(headbuf,+40, size - 44);
-	headbuf.length=size;
-
-//    if(fwrite(headbuf, 1, 44, out) != 44) {
-//        fprintf(stderr, _("ERROR: Failed to write Wave header: %s\n"), strerror(errno));
-//        return 1;
-//    }
-
-    return 0;
-}
 
 })();
