@@ -140,7 +140,6 @@ function Arr_new(len, val) {
 }
 
 function assert(bCondition) {
-  // console.log('assert')
   if (!bCondition) {
     throw new Error('assert :P');
   }
@@ -639,7 +638,10 @@ function compute_codewords(c, len, n, values)
 
    // find the first entry
    for (k=0; k < n; ++k) if (len[k] < NO_CODE) break;
-   if (k === n) { assert(c.sorted_entries === 0); return true; }
+   if (k === n) {
+      // assert(c.sorted_entries === 0);
+      return true;
+   }
    // add to the list
    add_entry(c, 0, k, m++, len[k], values);
    // add all available leaves
@@ -660,7 +662,10 @@ function compute_codewords(c, len, n, values)
       // trivial to prove, but it seems true and the assert never
       // fires, so!
       while (z > 0 && !available[z]) --z;
-      if (z === 0) { assert(0); return false; }
+      if (z === 0) {
+        // assert(0);
+        return false;
+      }
       res = available[z];
       available[z] = 0;
       add_entry(c, bit_reverse(res), i, m++, len[i], values);
@@ -708,7 +713,7 @@ function uint32_compare(x, y) {
 //1079
 function include_in_sort(c, len) {
   if (c.sparse) {
-    assert(len !== NO_CODE);
+    // assert(len !== NO_CODE);
     return true;
   }
   if (len === NO_CODE) {
@@ -735,7 +740,7 @@ function compute_sorted_huffman(c, lengths, values)
       for (i=0; i < c.entries; ++i)
          if (include_in_sort(c, lengths[i])) 
             c.sorted_codewords[k++] = bit_reverse(c.codewords[i]);
-      assert(k === c.sorted_entries);
+      // assert(k === c.sorted_entries);
    } else {
       for (i=0; i < c.sorted_entries; ++i)
          c.sorted_codewords[i] = bit_reverse(c.codewords[i]);
@@ -765,7 +770,7 @@ function compute_sorted_huffman(c, lengths, values)
                n >>>= 1;
             }
          }
-         assert(c.sorted_codewords[x] === code);
+         // assert(c.sorted_codewords[x] === code);
          if (c.sparse) {
             c.sorted_values[x] = values[i];
             c.codeword_lengths[x] = huff_len;
@@ -791,8 +796,8 @@ function lookup1_values(entries, dim)
    var r = Math.floor(Math.exp(Math.log(entries) / dim));//int_ = (int_) (float_) (float_) 
    if (Math.floor(Math.pow(r+1, dim)) <= entries)   //(int_) (float_)  // (int) cast for MinGW warning;
       ++r;                                              // floor() to avoid _ftol() when non-CRT
-   assert(Math.pow( r+1, dim) > entries);//(float_)
-   assert(Math.floor(Math.pow(r, dim)) <= entries); //(int_) (float)  // (int),floor() as above
+   // assert(Math.pow( r+1, dim) > entries);//(float_)
+   // assert(Math.floor(Math.pow(r, dim)) <= entries); //(int_) (float)  // (int),floor() as above
    return r;
 }
 
@@ -1087,7 +1092,7 @@ function next_segment(f) {
   if (f.next_seg >= f.segment_count) {
     f.next_seg = -1;
   }
-  assert(f.bytes_in_seg === 0);
+  // assert(f.bytes_in_seg === 0);
   f.bytes_in_seg = len;
   return len;
 }
@@ -1101,7 +1106,7 @@ function get8_packet_raw(f)
    if (!f.bytes_in_seg)
       if (f.last_seg) return EOP;
       else if (!next_segment(f)) return EOP;
-   assert(f.bytes_in_seg > 0);
+   // assert(f.bytes_in_seg > 0);
    --f.bytes_in_seg;
    ++f.packet_bytes;
    return get8(f);
@@ -1190,7 +1195,7 @@ function codebook_decode_scalar_raw(f, c)
    var i=int_;
    prep_huffman(f);
 
-   assert(c.sorted_codewords || c.codewords);
+   // assert(c.sorted_codewords || c.codewords);
    // cases to use binary search: sorted_codewords && !c->codewords
    //                             sorted_codewords && c->entries > 8
    if (c.entries > 8 ? c.sorted_codewords !== null : !c.codewords) {
@@ -1223,7 +1228,7 @@ function codebook_decode_scalar_raw(f, c)
    }
 
    // if small, linear search
-   assert(!c.sparse);
+   // assert(!c.sparse);
    for (i=0; i < c.entries; ++i) {
       if (c.codeword_lengths[i] === NO_CODE) continue;
       if (c.codewords[i] === (f.acc & (((1 << c.codeword_lengths[i])>>>0)-1))) {
@@ -1303,9 +1308,9 @@ function codebook_decode_start(f, c, len)
     error(f, VORBIS_invalid_stream);
   } else {
     DECODE_RAW(z, f, c);
-    if (c.sparse) {
-      assert(z < c.sorted_entries);
-    }
+    // if (c.sparse) {
+    //   assert(z < c.sorted_entries);
+    // }
     if (z[0] < 0) {  // check for EOP
       if (!f.bytes_in_seg && f.last_seg) {
         return z[0];
@@ -1402,7 +1407,7 @@ function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_int
       var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
       DECODE_RAW(z,f,c);
 //      #ifndef STB_VORBIS_DIVIDES_IN_CODEBOOK
-      assert(!c.sparse || z[0] < c.sorted_entries);
+      // assert(!c.sparse || z[0] < c.sorted_entries);
 //      #endif
       if (z[0] < 0) {
          if (!f.bytes_in_seg)
@@ -1958,7 +1963,7 @@ function imdct_step3_iter0_loop(n, e, i_off, k_off, A)
    var ee2 = ee0; var ee2_off = ee0_off + k_off;//float_ *
    var i=int_;var A_off=0; 
 
-   assert((n & 3) === 0);
+   // assert((n & 3) === 0);
    for (i=(n>>>2); i > 0; --i) {
       var k00_20=float_, k01_21=float_;
       k00_20  = ee0[ee0_off+ 0] - ee2[ee2_off+ 0];
@@ -2372,7 +2377,7 @@ function inverse_mdct(buffer, n, f, blocktype)
 
 
    // data must be in buf2
-   assert(v_off === buf2_off);
+   // assert(v_off === buf2_off);
 
    // step 7   (paper output is v, now v)
    // this is now in place
@@ -2493,7 +2498,7 @@ function get_window(f, len) {
   len <<= 1;
   if (len == f.blocksize_0) return f.window_[0];
   if (len == f.blocksize_1) return f.window_[1];
-  assert(0);
+  // assert(0);
   return null;
 }
 
@@ -2554,9 +2559,9 @@ function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_rig
     }
   }
 
-  if (f.alloc.alloc_buffer) {
-    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
-  }
+  // if (f.alloc.alloc_buffer) {
+  //   assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  // }
 
   i = get_bits(f, ilog(f.mode_count-1));
   if (i === EOP) return false;
@@ -2704,9 +2709,9 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
   stb_prof(0);
   // at this point we've decoded all floors
 
-  if (f.alloc.alloc_buffer) {
-    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
-  }
+  // if (f.alloc.alloc_buffer) {
+  //   assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  // }
 
   // re-enable coupled channels if necessary
   // memcpy(really_zero_channel, 0, zero_channel, 0, f.channels);//sizeof(really_zero_channel[0]) * 
@@ -2740,9 +2745,9 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
     decode_residue(f, residue_buffers, ch, n2, r, do_not_decode);
   }
 
-  if (f.alloc.alloc_buffer) {
-    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
-  }
+  // if (f.alloc.alloc_buffer) {
+  //   assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  // }
 
 // INVERSE COUPLING
   stb_prof(14);
@@ -2856,9 +2861,9 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
     f.current_loc += (right_start - left_start);
   }
 
-  if (f.alloc.alloc_buffer) {
-    assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
-  }
+  // if (f.alloc.alloc_buffer) {
+  //   assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
+  // }
   len[0] = right_end;//*  // ignore samples after the window goes to 0
   return true;
 }
@@ -3527,7 +3532,7 @@ function start_decoder(f) {
    f.first_decode = true;
 
    if (f.alloc.alloc_buffer) {
-      assert(f.temp_offset === f.alloc.alloc_buffer_length_in_bytes);
+      // assert(f.temp_offset === f.alloc.alloc_buffer_length_in_bytes);
       // check if there's enough temp memory so we don't error later
       if (f.setup_offset + f.temp_memory_required > f.temp_offset)//sizeof(*f) +  > (unsigned) 
          return error(f, VORBIS_outofmem);
