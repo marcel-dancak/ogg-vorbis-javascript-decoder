@@ -130,15 +130,6 @@ function memset(ptr, ptr_off, value, num) {
   }
 }
 
-function Arr(len, val) {
-  return Array(len).fill(val);
-  // var result = Array(len);
-  // for (var i = 0; i < len; ++i) {
-  //   result[i] = val;
-  // }
-  // return result;
-}
-
 function Arr_new(len, val) {
   var result = Array(len);
   for (var i = 0; i < len; ++i) {
@@ -160,30 +151,19 @@ function assert(bCondition) {
 
 function oggvorbisdata(filename) {
   var v = stb_vorbis_decode_filename(filename);
-  v.buffer = [];
+  var data = [];
   for (var ch = 0; ch < v.channels; ch++) {
-    // #1
     var src = v.data[ch];
     var dest = new Float32Array(v.samples_output);
+    var dest_off = 0;
     var len = src.length;
     for (var i = 0; i < len; i++) {
-      dest[i] = src[i];
+      dest.set(src[i], dest_off);
+      dest_off += src[i].length;
     }
-    v.buffer.push(dest);
-
-    // #2
-    // var offset = 0;
-    // var len = data[ch].length;
-    // for (var i = 0; i < len; i++) {
-    //   v.audiobuf.copyToChannel(data[ch][i], ch, offset);
-    //   offset += data[ch][i].length;
-    // }
-
-    // data[ch].forEach(function(chunk) {
-    //   v.audiobuf.copyToChannel(chunk, ch, offset);
-    //   offset += chunk.length;
-    // });
+    data.push(dest);
   }
+  v.data = data;
   return v;
 }
 
@@ -191,22 +171,12 @@ function oggaudiobuffer(filename, context) {
   var v = stb_vorbis_decode_filename(filename);
   var audiobuffer = context.createBuffer(v.channels, v.samples_output, v.sample_rate);
   for (var ch = 0; ch < v.channels; ch++) {
-    // #1
-    var src = v.data[ch];
-    var dest = audiobuffer.getChannelData(ch);
-    var len = src.length;
+    var offset = 0;
+    var len = v.data[ch].length;
     for (var i = 0; i < len; i++) {
-      dest[i] = src[i];
+      audiobuffer.copyToChannel(v.data[ch][i], ch, offset);
+      offset += v.data[ch][i].length;
     }
-
-    // #2
-    // var offset = 0;
-    // var len = v.data[ch].length;
-    // for (var i = 0; i < len; i++) {
-    //   audiobuffer.copyToChannel(v.data[ch][i], ch, offset);
-    //   offset += v.data[ch][i].length;
-    // }
-
     // data[ch].forEach(function(chunk) {
     //   v.audiobuffer.copyToChannel(chunk, ch, offset);
     //   offset += chunk.length;
@@ -338,7 +308,7 @@ var Codebook = function()
   this.multiplicands = codetype;//*
   this.codewords = uint32;//*
 //  #ifdef STB_VORBIS_FAST_HUFFMAN_SHORT
-  this.fast_huffman = Array(FAST_HUFFMAN_TABLE_SIZE);//int16
+  this.fast_huffman = new Int16Array(FAST_HUFFMAN_TABLE_SIZE);
 //  #else
 //   int32  fast_huffman[FAST_HUFFMAN_TABLE_SIZE];
 //  #endif
@@ -357,65 +327,65 @@ var Floor0 = function()
   this.amplitude_bits = uint8;
   this.amplitude_offset = uint8;
   this.number_of_books = uint8;
-  this.book_list = Array(16);//uint8 // varies
+  this.book_list = new Uint8Array(16);//uint8 // varies
 };
 
 //627
 var Floor1 = function()
 {
   this.partitions = uint8;
-  this.partition_class_list = Array(32);//uint8 // varies
-  this.class_dimensions = Array(16);//uint8 // varies
-  this.class_subclasses = Array(16);//uint8 // varies
-  this.class_masterbooks = Array(16);//uint8 // varies
-  this.subclass_books = Array(16);for(var i = 0;i<16;i++)this.subclass_books[i] = Array(8);//int16 // varies
-  this.Xlist = Array(31*8+2);//uint16 // varies
-  this.sorted_order = Array(31*8+2);//uint8
-  this.neighbors = Array(31*8+2);for(var i = 0;i<31*8+2;i++)this.neighbors[i] = Array(2);//uint8
+  this.partition_class_list = new Uint8Array(32);//uint8 // varies
+  this.class_dimensions = new Uint8Array(16);//uint8 // varies
+  this.class_subclasses = new Uint8Array(16);//uint8 // varies
+  this.class_masterbooks = new Uint8Array(16);//uint8 // varies
+  this.subclass_books = Array(16);for(var i = 0;i<16;i++)this.subclass_books[i] = new Int16Array(8);//int16 // varies
+  this.Xlist = new Int16Array(31*8+2);//uint16 // varies
+  this.sorted_order = new Uint8Array(31*8+2);//uint8
+  this.neighbors = Array(31*8+2);for(var i = 0;i<31*8+2;i++)this.neighbors[i] = new Uint8Array(2);//uint8
+
+  // this.neighbors = new Uint8Array(31*8+2);
+  // for(var i = 0;i<31*8+2;i++) this.neighbors[i] = Array(2);//uint8
+  // this.neighbors = Uint8Array.from(Array(31*8+2), function() {return Array(2) });
+
   this.floor1_multiplier = uint8;
   this.rangebits = uint8;
   this.values = int_;
 };
 
 //643
-var Floor = function() //union
-{
+var Floor = function() {//union
   this.floor0 = new Floor0();
   this.floor1 = new Floor1();
 };
 
 //649
-var Residue = function()
-{
+var Residue = function() {
   this.begin = uint32, this.end = uint32;
   this.part_size = uint32;
   this.classifications = uint8;
   this.classbook = uint8;
   this.classdata = uint8;//**
-  this.residue_books = Array(8);//int16 //(*)
+  this.residue_books = new Int16Array(8);//int16 //(*)
 };
 
 //659
-var MappingChannel = function()
-{
+var MappingChannel = function() {
   this.magnitude = uint8;
   this.angle = uint8;
   this.mux = uint8;
 };
 
 //666
-var Mapping = function()
-{
+var Mapping = function() {
   this.coupling_steps = uint16;
   this.chan = 'MappingChannel';//*
   this.submaps = uint8;
-  this.submap_floor = Array(15);//uint8 // varies
-  this.submap_residue = Array(15);//uint8 // varies
+  this.submap_floor = new Uint8Array(15);//uint8 // varies
+  this.submap_residue = new Uint8Array(15);//uint8 // varies
 };
 
 //675
-var Mode = function()
-{
+var Mode = function() {
   this.blockflag = uint8;
   this.mapping = uint8;
   this.windowtype = uint16;
@@ -423,8 +393,7 @@ var Mode = function()
 };
 
 //692
-var ProbedPage = function()
-{
+var ProbedPage = function() {
   this.page_start, this.page_end = uint32;
   this.after_previous_page_start = uint32;
   this.first_decoded_sample = uint32;
@@ -481,21 +450,21 @@ var stb_vorbis = function()
   this.codebook_count = int_;
   this.codebooks = 'Codebook';//*
   this.floor_count = int_;
-  this.floor_types = Array(64);//uint16 // varies
+  this.floor_types = new Int16Array(64);//uint16 // varies
   this.floor_config = 'Floor';//*
   this.residue_count = int_;
-  this.residue_types = Array(64);//uint16 // varies
+  this.residue_types = new Int16Array(64);//uint16 // varies
   this.residue_config = 'Residue';//*
   this.mapping_count = int_;
   this.mapping = 'Mapping';//*
   this.mode_count = int_;
-  this.mode_config = Arr_new(64,Mode);  // varies
+  this.mode_config = Arr_new(64, Mode);  // varies
 
   this.total_samples = uint32;
 
   // decode buffer
   this.channel_buffers = Array(STB_VORBIS_MAX_CHANNELS);//float *
-  this.outputs         = Array(STB_VORBIS_MAX_CHANNELS);//float *
+  // this.outputs         = Array(STB_VORBIS_MAX_CHANNELS);//float *
 
   this.previous_window = Array(STB_VORBIS_MAX_CHANNELS);//float *
   this.previous_length = int_;
@@ -522,7 +491,7 @@ var stb_vorbis = function()
   this.serial = uint32; // stream serial number for verification
   this.last_page = int_;
   this.segment_count = int_;
-  this.segments = Arr(255, uint8);//
+  this.segments = new Uint8Array(255);
   this.page_flag = uint8;
   this.bytes_in_seg = uint8;
   this.first_decode = uint8;
@@ -571,7 +540,7 @@ function temp_alloc_restore(f,p)         { return ((f).temp_offset = (p)) }
 
 var CRC32_POLY    = 0x04c11db7;   // from spec
 
-var crc_table=new Array(256);//static uint32
+var crc_table = new Uint32Array(256);//static uint32
 //911
 function crc32_init() {
   var i=int_,j=int_;
@@ -594,20 +563,13 @@ function bit_reverse(n) {
   return ((n >>> 16) | (n << 16))>>>0;
 }
 
-//938
-function square(x) {
-  console.log('square')
-  return x*x;
-}
-
 // this is a weird definition of log2() for which log2(1) = 1, log2(2) = 2, log2(4) = 3
 // as required by the specification. fast(?) implementation from stb.h
 // @OPTIMIZE: called multiple times per-packet with "constants"; move to setup
 //946
-function ilog(n)
-{
-   var log2_4 = new Array( 0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4 );//static signed char_
 
+var log2_4 = Int32Array.of( 0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4 );//static signed char_
+function ilog(n) {
    // 2 compares if n < 16, 3 compares otherwise (4 if signed or n > 1<<29)
    if (n < (1 << 14))//U
         if (n < (1 <<  4))        return     0 + log2_4[n      ];//U
@@ -670,9 +632,9 @@ function add_entry(c, huff_code, symbol, count, len, values)
 function compute_codewords(c, len, n, values)
 {
    var i=int_,k=int_,m=0;//int_
-   var available=new Array(32);//uint32
+   var available = new Uint32Array(32)//.fill(0);
+   // memset(available, 0, 0, 32);//sizeof(available)
 
-   memset(available, 0, 0, 32);//sizeof(available)
    // find the first entry
    for (k=0; k < n; ++k) if (len[k] < NO_CODE) break;
    if (k == n) { assert(c.sorted_entries == 0); return true; }
@@ -737,20 +699,23 @@ function compute_accelerated_huffman(c)
 }
 
 //1072
-function uint32_compare(p, q)
-{
-   var x = p;//uint32 = * (uint32 *)
-   var y = q;//uint32 = * (uint32 *)
-   return x < y ? -1 : x > y;
+function uint32_compare(x, y) {
+  return x < y ? -1 : x > y;
 }
 
 //1079
-function include_in_sort(c, len)
-{
-   if (c.sparse) { assert(len != NO_CODE); return true; }
-   if (len == NO_CODE) return false;
-   if (len > STB_VORBIS_FAST_HUFFMAN_LENGTH) return true;
-   return false;
+function include_in_sort(c, len) {
+  if (c.sparse) {
+    assert(len !== NO_CODE);
+    return true;
+  }
+  if (len === NO_CODE) {
+    return false;
+  }
+  if (len > STB_VORBIS_FAST_HUFFMAN_LENGTH) {
+    return true;
+  }
+  return false;
 }
 
 // if the fast table above doesn't work, we want to binary
@@ -811,10 +776,9 @@ function compute_sorted_huffman(c, lengths, values)
 
 //1142
 // only run while parsing the header (3 times)
-function vorbis_validate(data)
-{
-   var vorbis = new Array( 118, 111, 114, 98, 105, 115 );//new Array( 'v', 'o', 'r', 'b', 'i', 's' );//static uint8
-   return memcmp(data, vorbis, 6) == 0;
+function vorbis_validate(data) {
+  var vorbis = new Array( 118, 111, 114, 98, 105, 115 );//new Array( 'v', 'o', 'r', 'b', 'i', 's' );//static uint8
+  return memcmp(data, vorbis, 6) == 0;
 }
 
 // called from setup only, once per code book
@@ -874,13 +838,13 @@ function init_blocksize(f, b, n) {
   f.A[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
   f.B[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
   f.C[b] = new Array(n4);//(float *) setup_malloc(f, sizeof(float) * n4);
-  if (!f.A[b] || !f.B[b] || !f.C[b]) return error(f, VORBIS_outofmem);
+
   compute_twiddle_factors(n, f.A[b], f.B[b], f.C[b]);
   f.window_[b] = new Array(n2);//(float *) setup_malloc(f, sizeof(float) * n2);
-  if (!f.window_[b]) return error(f, VORBIS_outofmem);
+
   compute_window(n, f.window_[b]);
   f.bit_reverse[b] = new Array(n8);//(uint16 *) setup_malloc(f, sizeof(uint16) * n8);
-  if (!f.bit_reverse[b]) return error(f, VORBIS_outofmem);
+
   compute_bitreverse(n, f.bit_reverse[b]);
   return true;
 }
@@ -899,14 +863,12 @@ function neighbors(x, n, plow, phigh) {
 // this has been repurposed so y is now the original index instead of y
 //1223
 var Point = function() {
-  this.x=52428;//uint16
-  this.y=52428;//uint16
+  this.x = 52428;//uint16
+  this.y = 52428;//uint16
 };
 
 //1228
-function point_compare(p, q) {
-  var a = p;//Point * = (Point *) 
-  var b = q;//Point * = (Point *) 
+function point_compare(a, b) {
   return a.x < b.x ? -1 : a.x > b.x;
 }
 
@@ -1229,7 +1191,7 @@ function codebook_decode_scalar_raw(f, c)
    assert(c.sorted_codewords || c.codewords);
    // cases to use binary search: sorted_codewords && !c->codewords
    //                             sorted_codewords && c->entries > 8
-   if (c.entries > 8 ? c.sorted_codewords!=null : !c.codewords) {
+   if (c.entries > 8 ? c.sorted_codewords !== null : !c.codewords) {
       // binary search
       var code = bit_reverse(f.acc);//uint32
       var x=0, n=c.sorted_entries, len=int_;//int_
@@ -1261,8 +1223,8 @@ function codebook_decode_scalar_raw(f, c)
    // if small, linear search
    assert(!c.sparse);
    for (i=0; i < c.entries; ++i) {
-      if (c.codeword_lengths[i] == NO_CODE) continue;
-      if (c.codewords[i] == (f.acc & (((1 << c.codeword_lengths[i])>>>0)-1))) {
+      if (c.codeword_lengths[i] === NO_CODE) continue;
+      if (c.codewords[i] === (f.acc & (((1 << c.codeword_lengths[i])>>>0)-1))) {
          if (f.valid_bits >= c.codeword_lengths[i]) {
             f.acc >>>= c.codeword_lengths[i];
             f.valid_bits -= c.codeword_lengths[i];
@@ -1282,18 +1244,22 @@ function codebook_decode_scalar_raw(f, c)
 //#ifndef STB_VORBIS_NO_INLINE_DECODE
 
 //1637
-function DECODE_RAW(var_, f,c) {                              
-   if (f.valid_bits < STB_VORBIS_FAST_HUFFMAN_LENGTH)         
-      prep_huffman(f);                                        
-   var_[0] = f.acc & FAST_HUFFMAN_TABLE_MASK;                 
-   var_[0] = c.fast_huffman[var_[0]];                         
-   if (var_[0] >= 0) {                                        
-      var n = c.codeword_lengths[var_[0]];//int_              
-      f.acc >>>= n;                                           
-      f.valid_bits -= n;                                      
-      if (f.valid_bits < 0) { f.valid_bits = 0; var_[0] = -1; }
-   } else {                                                   
-      var_[0] = codebook_decode_scalar_raw(f,c);              
+function DECODE_RAW(var_, f,c) {
+   if (f.valid_bits < STB_VORBIS_FAST_HUFFMAN_LENGTH) {
+      prep_huffman(f);
+   }
+   var_[0] = f.acc & FAST_HUFFMAN_TABLE_MASK;
+   var_[0] = c.fast_huffman[var_[0]];
+   if (var_[0] >= 0) {
+      var n = c.codeword_lengths[var_[0]];//int_
+      f.acc >>>= n;
+      f.valid_bits -= n;
+      if (f.valid_bits < 0) {
+        f.valid_bits = 0;
+        var_[0] = -1;
+      }
+   } else {
+      var_[0] = codebook_decode_scalar_raw(f,c);
    }
 }
 
@@ -1304,21 +1270,12 @@ function DECODE_RAW(var_, f,c) {
 //#endif
 
 //1657
-function DECODE(var_,f,c) {                                    
-   DECODE_RAW(var_,f,c);                                        
-   if (c.sparse) var_[0] = c.sorted_values[var_[0]];
+function DECODE(var_,f,c) {
+  DECODE_RAW(var_, f, c);
+  if (c.sparse) {
+    var_[0] = c.sorted_values[var_[0]];
+  }
 }
-
-//1661
-//#ifndef STB_VORBIS_DIVIDES_IN_CODEBOOK
-  function DECODE_VQ(var_,f,c)   { DECODE_RAW(var_,f,c) }
-//#else
-//  #define DECODE_VQ(var,f,c)   DECODE(var,f,c)
-//#endif
-
-
-
-
 
 
 //1672
@@ -1329,30 +1286,32 @@ function DECODE(var_,f,c) {
 //   #define CODEBOOK_ELEMENT_FAST(c,off)     (c->multiplicands[off] * c->delta_value)
 //   #define CODEBOOK_ELEMENT_BASE(c)         (c->minimum_value)
 //#else
-   function CODEBOOK_ELEMENT(c,off)          { return (c.multiplicands[off]) }
-   function CODEBOOK_ELEMENT_FAST(c,off)     { return (c.multiplicands[off]) }
+   // function CODEBOOK_ELEMENT(c,off)          { return (c.multiplicands[off]) }
+   function CODEBOOK_ELEMENT_FAST(c,off)     { console.log('FAST');return (c.multiplicands[off]) }
    function CODEBOOK_ELEMENT_BASE(c)         { return (0) }
 //#endif
 
 //1684
 function codebook_decode_start(f, c, len)
 {
-   var z = [-1];//int_
+  var z = [-1];//int_
 
-   // type 0 is only legal in a scalar context
-   if (c.lookup_type == 0)
-      error(f, VORBIS_invalid_stream);
-   else {
-      DECODE_VQ(z,f,c);
-      if (c.sparse) assert(z < c.sorted_entries);
-      if (z[0] < 0) {  // check for EOP
-         if (!f.bytes_in_seg)
-            if (f.last_seg)
-               return z[0];
-         error(f, VORBIS_invalid_stream);
+  // type 0 is only legal in a scalar context
+  if (c.lookup_type === 0) {
+    error(f, VORBIS_invalid_stream);
+  } else {
+    DECODE_RAW(z, f, c);
+    if (c.sparse) {
+      assert(z < c.sorted_entries);
+    }
+    if (z[0] < 0) {  // check for EOP
+      if (!f.bytes_in_seg && f.last_seg) {
+        return z[0];
       }
-   }
-   return z[0];
+      error(f, VORBIS_invalid_stream);
+    }
+  }
+  return z[0];
 }
 
 //1704
@@ -1379,16 +1338,16 @@ function codebook_decode(f, c, output, output_off, len)
 
    z *= c.dimensions;
    if (c.sequence_p) {
-      var last = CODEBOOK_ELEMENT_BASE(c);//float_
+      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
       for (i=0; i < len; ++i) {
-         var val = CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
+         var val = c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
          output[output_off+ i] += val;
          last = val + c.minimum_value;
       }
    } else {
-      var last = CODEBOOK_ELEMENT_BASE(c);//float_
+      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
       for (i=0; i < len; ++i) {
-         output[output_off+ i] += CODEBOOK_ELEMENT_FAST(c,z+i) + last;
+         output[output_off+ i] += c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;
       }
    }
 
@@ -1399,7 +1358,7 @@ function codebook_decode(f, c, output, output_off, len)
 function codebook_decode_step(f, c, output, output_off, len, step)
 {
    var i=int_,z = codebook_decode_start(f,c,len);//int_
-   var last = CODEBOOK_ELEMENT_BASE(c);//float_
+   var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
    if (z < 0) return false;
    if (len > c.dimensions) len = c.dimensions;
 
@@ -1419,7 +1378,7 @@ function codebook_decode_step(f, c, output, output_off, len, step)
 
    z *= c.dimensions;
    for (i=0; i < len; ++i) {
-      var val = CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
+      var val = c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
       output[output_off+ i*step] += val;
       if (c.sequence_p) last = val;
    }
@@ -1438,8 +1397,8 @@ function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_int
    if (c.lookup_type == 0)   return error(f, VORBIS_invalid_stream);
 
    while (total_decode > 0) {
-      var last = CODEBOOK_ELEMENT_BASE(c);//float_
-      DECODE_VQ(z,f,c);
+      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
+      DECODE_RAW(z,f,c);
 //      #ifndef STB_VORBIS_DIVIDES_IN_CODEBOOK
       assert(!c.sparse || z[0] < c.sorted_entries);
 //      #endif
@@ -1474,14 +1433,14 @@ function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_int
          z[0] *= c.dimensions;
          if (c.sequence_p) {
             for (i=0; i < effective; ++i) {
-               var val = CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
+               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
                if (++c_inter == ch) { c_inter = 0; ++p_inter; }
                last = val;
             }
          } else {
             for (i=0; i < effective; ++i) {
-               var val = CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
+               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
                if (++c_inter == ch) { c_inter = 0; ++p_inter; }
             }
@@ -1507,8 +1466,8 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
    if (c.lookup_type == 0)   return error(f, VORBIS_invalid_stream);
 
    while (total_decode > 0) {
-      var last = CODEBOOK_ELEMENT_BASE(c);//float_
-      DECODE_VQ(z,f,c);
+      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
+      DECODE_RAW(z,f,c);
 
       if (z[0] < 0) {
          if (!f.bytes_in_seg)
@@ -1530,7 +1489,7 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
          if (c.sequence_p) {
             // haven't optimized this case because I don't have any examples
             for (i=0; i < effective; ++i) {
-               var val = CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
+               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
                if (++c_inter == 2) { c_inter = 0; ++p_inter; }
                last = val;
@@ -1538,7 +1497,7 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
          } else {
             i=0;
             if (c_inter == 1) {
-               var val = CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
+               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
                c_inter = 0; ++p_inter;
                ++i;
@@ -1547,14 +1506,14 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
                var z0 = outputs[0];//float_ *
                var z1 = outputs[1];//float_ *
                for (; i+1 < effective;) {
-                  z0[p_inter] += CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;
-                  z1[p_inter] += CODEBOOK_ELEMENT_FAST(c,z[0]+i+1) + last;
+                  z0[p_inter] += c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;
+                  z1[p_inter] += c.multiplicands[z[0]+i+1] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i+1) + last;
                   ++p_inter;
                   i += 2;
                }
             }
             if (i < effective) {
-               var val = CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
+               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
                if (++c_inter == 2) { c_inter = 0; ++p_inter; }
             }
@@ -1583,7 +1542,8 @@ function predict_point(x, x0, x1, y0, y1)
 //1924
 // the following table is block-copied from the specification
 var inverse_db_table =//static float_
-new Array(
+// new Array(
+Float32Array.of(
   1.0649863e-07, 1.1341951e-07, 1.2079015e-07, 1.2863978e-07, 
   1.3699951e-07, 1.4590251e-07, 1.5538408e-07, 1.6548181e-07, 
   1.7623575e-07, 1.8768855e-07, 1.9988561e-07, 2.1287530e-07, 
@@ -1649,7 +1609,6 @@ new Array(
   0.64356699,    0.68538959,    0.72993007,    0.77736504, 
   0.82788260,    0.88168307,    0.9389798,     1.0
 );
-// inverse_db_table = Float32Array.from(inverse_db_table);
 
 
 //2013
@@ -1701,23 +1660,25 @@ function draw_line(output, x0, y0, x1, y1, n)
 }
 
 //2060
-function residue_decode(f, book, target, offset, n, rtype)
-{
-   var k=int_;
-   if (rtype == 0) {
-      var step = parseInt(n / book.dimensions);//int_
-      for (k=0; k < step; ++k)
-         if (!codebook_decode_step(f, book, target,+offset+k, n-offset-k, step))
-            return false;
-   } else {
-      for (k=0; k < n; ) {
-         if (!codebook_decode(f, book, target,+offset, n-k))
-            return false;
-         k += book.dimensions;
-         offset += book.dimensions;
+function residue_decode(f, book, target, offset, n, rtype) {
+  var k = int_;
+  if (rtype === 0) {
+    var step = parseInt(n / book.dimensions);//int_
+    for (k = 0; k < step; ++k) {
+      if (!codebook_decode_step(f, book, target, offset+k, n-offset-k, step)) {
+        return false;
       }
-   }
-   return true;
+    }
+  } else {
+    for (k = 0; k < n; ) {
+      if (!codebook_decode(f, book, target, offset, n-k)) {
+        return false;
+      }
+      k += book.dimensions;
+      offset += book.dimensions;
+    }
+  }
+  return true;
 }
 
 //2079
@@ -3257,10 +3218,10 @@ function start_decoder(f) {
           if (c.sorted_entries == 0) {
             goto_skip = true;
           } else {
-            c.multiplicands = Array(c.sorted_entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->sorted_entries * c->dimensions);
+            c.multiplicands = new Float32Array(c.sorted_entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->sorted_entries * c->dimensions);
           }
         } else {
-          c.multiplicands = Array(c.entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->entries        * c->dimensions);
+          c.multiplicands = new Float32Array(c.entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->entries        * c->dimensions);
         }
         if (!goto_skip) {
           len = sparse ? c.sorted_entries : c.entries;
@@ -3287,7 +3248,7 @@ function start_decoder(f) {
         }
       } else {
 //#endif
-        c.multiplicands = Array(c.lookup_values);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->lookup_values);
+        c.multiplicands = new Float32Array(c.lookup_values);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->lookup_values);
 //      #ifndef STB_VORBIS_CODEBOOK_FLOATS
 //      memcpy(c->multiplicands, mults, sizeof(c->multiplicands[0]) * c->lookup_values);
 //      #else
@@ -3396,7 +3357,7 @@ function start_decoder(f) {
    f.residue_count = get_bits(f, 6)+1;
    f.residue_config = Arr_new(f.residue_count,Residue);//(Residue *) setup_malloc(f, f->residue_count * sizeof(*f->residue_config));
    for (i=0; i < f.residue_count; ++i) {
-      var residue_cascade=new Array(64);//uint8
+      var residue_cascade = new Uint8Array(64);//uint8
       var r = f.residue_config[+i];//Residue *
       f.residue_types[i] = get_bits(f, 16);
       if (f.residue_types[i] > 2) return error(f, VORBIS_invalid_setup);
@@ -3412,7 +3373,11 @@ function start_decoder(f) {
             high_bits = get_bits(f,5);
          residue_cascade[j] = high_bits*8 + low_bits;
       }
-      r.residue_books = new Array(r.classifications);for(var a=0;a<r.classifications;a++)r.residue_books[a]=new Array(8);//(short (*)[8]) setup_malloc(f, sizeof(r->residue_books[0]) * r->classifications);
+      r.residue_books = Array(r.classifications);
+      for(var a=0;a<r.classifications;a++) {
+        r.residue_books[a] = new Int32Array(8);//(short (*)[8]) setup_malloc(f, sizeof(r->residue_books[0]) * r->classifications);
+      }
+
       for (j=0; j < r.classifications; ++j) {
          for (k=0; k < 8; ++k) {
             if (residue_cascade[j] & (1 << k)) {
@@ -3425,8 +3390,8 @@ function start_decoder(f) {
       }
       // precompute the classifications[] array to avoid inner-loop mod/divide
       // call it 'classdata' since we already have r->classifications
-      r.classdata = new Array(f.codebooks[r.classbook].entries);//(uint8 **) setup_malloc(f, sizeof(*r->classdata) * f->codebooks[r->classbook].entries);
-      if (!r.classdata) return error(f, VORBIS_outofmem);
+      r.classdata = Array(f.codebooks[r.classbook].entries);//(uint8 **) setup_malloc(f, sizeof(*r->classdata) * f->codebooks[r->classbook].entries);
+
       memset(r.classdata, 0, 0, f.codebooks[r.classbook].entries);//sizeof(*r->classdata) * 
       for (j=0; j < f.codebooks[r.classbook].entries; ++j) {
          var classwords = f.codebooks[r.classbook].dimensions;//int_
@@ -3503,12 +3468,12 @@ function start_decoder(f) {
    f.previous_length = 0;
 
    for (i=0; i < f.channels; ++i) {
-      f.channel_buffers[i] = new Array(f.blocksize_1);//(float *) setup_malloc(f, sizeof(float) * f->blocksize_1);
-      // f.channel_buffers[i] = new Float32Array(f.blocksize_1);
-      f.previous_window[i] = new Array(parseInt(f.blocksize_1/2,10));//(float *) setup_malloc(f, sizeof(float) * f->blocksize_1/2);
-      // f.previous_window[i] = new Float32Array(parseInt(f.blocksize_1/2,10));
-      f.finalY[i]          = new Array(longest_floorlist);//(int16 *) setup_malloc(f, sizeof(int16) * longest_floorlist);
-      // f.finalY[i]          = new Int16Array(longest_floorlist);
+      // f.channel_buffers[i] = new Array(f.blocksize_1);
+      f.channel_buffers[i] = new Float32Array(f.blocksize_1);
+      // f.previous_window[i] = new Array(parseInt(f.blocksize_1/2,10));
+      f.previous_window[i] = new Float32Array(parseInt(f.blocksize_1/2,10));
+      // f.finalY[i]          = new Array(longest_floorlist);
+      f.finalY[i]          = new Int16Array(longest_floorlist);
 //      #ifdef STB_VORBIS_NO_DEFER_FLOOR
 //      f->floor_buffers[i]   = (float *) setup_malloc(f, sizeof(float) * f->blocksize_1/2);
 //      #endif
@@ -3663,17 +3628,8 @@ function stb_vorbis_get_frame_float(f, channels, buffer) {
   }
 
   len = vorbis_finish_frame(f, len[0], left[0], right[0]);
-  var dest_off = left[0];
   for (var i = 0; i < f.channels; ++i) {
-  // #1
-    var src_buff = f.channel_buffers[i];
-    var dest_buff = buffer[i];
-    for (var j = 0; j < len; j++) {
-      dest_buff.push(src_buff[dest_off + j]);
-    }
-
-  // #2
-    // buffer[i].push(f.channel_buffers[i].slice(dest_off, dest_off+len));
+    buffer[i].push(f.channel_buffers[i].slice(left[0], left[0]+len));
   }
 
   f.channel_buffer_start = left;
