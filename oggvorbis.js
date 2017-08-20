@@ -683,26 +683,27 @@ function compute_codewords(c, len, n, values)
 // accelerated huffman table allows fast O(1) match of all symbols
 // of length <= STB_VORBIS_FAST_HUFFMAN_LENGTH
 //1050
-function compute_accelerated_huffman(c)
-{
-   var i=int_, len=int_;
-   for (i=0; i < FAST_HUFFMAN_TABLE_SIZE; ++i)
-      c.fast_huffman[i] = -1;
+function compute_accelerated_huffman(c) {
+  c.fast_huffman.fill(-1)
 
-   len = c.sparse ? c.sorted_entries : c.entries;
-   //#ifdef STB_VORBIS_FAST_HUFFMAN_SHORT
-   if (len > 32767) len = 32767; // largest possible value we can encode!
+  var len = c.sparse ? c.sorted_entries : c.entries;
+  //#ifdef STB_VORBIS_FAST_HUFFMAN_SHORT
+  if (len > 32767) {
+    len = 32767; // largest possible value we can encode!
+  }
    //#endif
-   for (i=0; i < len; ++i) {
-      if (c.codeword_lengths[i] <= STB_VORBIS_FAST_HUFFMAN_LENGTH) {
-         var z = c.sparse ? bit_reverse(c.sorted_codewords[i]) : c.codewords[i];//uint32
-         // set table entries for all bit combinations in the higher bits
-         while (z < FAST_HUFFMAN_TABLE_SIZE) {
-             c.fast_huffman[z] = i;
-             z += (1 << c.codeword_lengths[i])>>>0;
-         }
+  for (var i=0; i < len; ++i) {
+    if (c.codeword_lengths[i] <= STB_VORBIS_FAST_HUFFMAN_LENGTH) {
+      var z = c.sparse ? bit_reverse(c.sorted_codewords[i]) : c.codewords[i];//uint32
+      // set table entries for all bit combinations in the higher bits
+
+      var k = (1 << c.codeword_lengths[i]) >>> 0;
+      while (z < FAST_HUFFMAN_TABLE_SIZE) {
+        c.fast_huffman[z] = i;
+        z += k;
       }
-   }
+    }
+  }
 }
 
 //1072
