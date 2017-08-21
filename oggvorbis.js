@@ -42,25 +42,17 @@ function fopen ( filename, mode ) {
   return f;
 }
 
-//int fgetc ( FILE * stream );
-function fgetc ( stream ) {
-  if (stream._ptr.length <= stream._ptr_off) {
-    return EOF;
-  }
-  return stream._ptr[stream._ptr_off++];
-}
-
 //fread
 //size_t fread ( void * ptr, size_t size, size_t count, FILE * stream );
 function fread ( ptr, size, count, stream ) {
   //ptr.val=new Array();
   //todo: size include
-
   if (stream._ptr.length < count + stream._ptr_off) {
     stream._ptr_off += count;
     return EOF;//0
   }
-  for(var i = 0; i < size*count; ++i) {
+  var len = size*count;
+  for(var i = 0; i < len; ++i) {
     ptr[i] = (stream._ptr[stream._ptr_off++]);
   }
   return 1;
@@ -892,28 +884,18 @@ function point_compare(a, b) {
 
 //1245
 function get8(z) {
-  if (z.stream !== null) {
-    if (z.stream_off >= z.stream_end_off) {
-      z.eof = true;
-      return 0;
-    }
-    return z.stream_off++;//*
-  }
+  var c = z.f._ptr[z.f._ptr_off++];
 
-  //#ifndef STB_VORBIS_NO_STDIO
-  var c = fgetc(z.f);//int_
-  if (c == EOF) {
+  if (c === undefined) {
     z.eof = true;
     return 0;
   }
   return c;
-   //#endif
 }
 
 //1261
 function get32(f) {
-  var x=uint32;
-  x = get8(f);
+  var x = get8(f);
   x += get8(f) << 8;
   x += get8(f) << 16;
   x += get8(f) << 24;
