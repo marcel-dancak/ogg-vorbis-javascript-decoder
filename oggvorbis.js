@@ -1229,77 +1229,54 @@ function codebook_decode_scalar_raw(f, c)
    return -1;
 }
 
-//1635
-//#ifndef STB_VORBIS_NO_INLINE_DECODE
 
 //1637
-function DECODE_RAW(var_, f, c) {
-   if (f.valid_bits < STB_VORBIS_FAST_HUFFMAN_LENGTH) {
-      prep_huffman(f);
-   }
-   var tmp = c.fast_huffman[f.acc & FAST_HUFFMAN_TABLE_MASK];
-   if (tmp >= 0) {
-    var_[0] = tmp;
-      var n = c.codeword_lengths[tmp];
-      f.acc >>>= n;
-      f.valid_bits -= n;
-      if (f.valid_bits < 0) {
-        f.valid_bits = 0;
-        var_[0] = -1;
-      }
-   } else {
-      var_[0] = codebook_decode_scalar_raw(f, c);
-   }
+function DECODE_RAW(f, c) {
+  if (f.valid_bits < STB_VORBIS_FAST_HUFFMAN_LENGTH) {
+    prep_huffman(f);
+  }
+  var val = c.fast_huffman[f.acc & FAST_HUFFMAN_TABLE_MASK];
+  if (val >= 0) {
+    var n = c.codeword_lengths[val];
+    f.acc >>>= n;
+    f.valid_bits -= n;
+    if (f.valid_bits < 0) {
+      f.valid_bits = 0;
+      val = -1;
+    }
+    return val;
+  }
+  return codebook_decode_scalar_raw(f, c);
 }
 
-//#else
-//
-//#define DECODE_RAW(var,f,c)    var = codebook_decode_scalar(f,c);
-//
-//#endif
 
 //1657
-function DECODE(var_,f,c) {
-  DECODE_RAW(var_, f, c);
+function DECODE(f, c) {
   if (c.sparse !== 0) {
-    var_[0] = c.sorted_values[var_[0]];
+    return c.sorted_values[DECODE_RAW(f, c)];
   }
+  return DECODE_RAW(f, c);
 }
 
 
-//1672
-// CODEBOOK_ELEMENT_FAST is an optimization for the CODEBOOK_FLOATS case
-// where we avoid one addition
-//#ifndef STB_VORBIS_CODEBOOK_FLOATS
-//   #define CODEBOOK_ELEMENT(c,off)          (c->multiplicands[off] * c->delta_value + c->minimum_value)
-//   #define CODEBOOK_ELEMENT_FAST(c,off)     (c->multiplicands[off] * c->delta_value)
-//   #define CODEBOOK_ELEMENT_BASE(c)         (c->minimum_value)
-//#else
-   // function CODEBOOK_ELEMENT(c,off)          { return (c.multiplicands[off]) }
-   function CODEBOOK_ELEMENT_FAST(c,off)     { return (c.multiplicands[off]) }
-   function CODEBOOK_ELEMENT_BASE(c)         { return (0) }
-//#endif
-
 //1684
-function codebook_decode_start(f, c, len)
-{
-  var z = [-1];//int_
+function codebook_decode_start(f, c, len) {
   // type 0 is only legal in a scalar context
-  if (c.lookup_type === 0) {
-    error(f, VORBIS_invalid_stream);
-  } else {
-    DECODE_RAW(z, f, c);
+  if (c.lookup_type !== 0) {
+    var z = DECODE_RAW(f, c);
     // if (c.sparse) {
     //   assert(z < c.sorted_entries);
     // }
-    if (z[0] < 0) {  // check for EOP
+    if (z < 0) {  // check for EOP
       if (f.last_seg === true && !f.bytes_in_seg) {
-        return z[0];
+        return z;
       }
       error(f, VORBIS_invalid_stream);
     }
+    return z;
   }
-  return z[0];
+  error(f, VORBIS_invalid_stream);
+  return -1;
 }
 
 //1704
@@ -1310,36 +1287,18 @@ function codebook_decode(f, c, output, output_off, len)
    if (len > c.dimensions) {
       len = c.dimensions;
    }
-   // console.log('decode')
-
-//#ifdef STB_VORBIS_DIVIDES_IN_CODEBOOK
-//   if (c->lookup_type == 1) {
-//      float last = CODEBOOK_ELEMENT_BASE(c);
-//      int div = 1;
-//      for (i=0; i < len; ++i) {
-//         int off = (z / div) % c->lookup_values;
-//         float val = CODEBOOK_ELEMENT_FAST(c,off) + last;
-//         output[i] += val;
-//         if (c->sequence_p) last = val + c->minimum_value;
-//         div *= c->lookup_values;
-//      }
-//      return TRUE;
-//   }
-//#endif
-
   
    z *= c.dimensions;
    if (c.sequence_p) {
-      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
+      var last = 0;
       for (var i = 0; i < len; ++i) {
-         var val = c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
+         var val = c.multiplicands[z+i] + last;
          output[output_off+ i] += val;
          last = val + c.minimum_value;
       }
    } else {
-      // var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
       for (var i = 0; i < len; ++i) {
-         output[output_off+i] += c.multiplicands[z+i];//CODEBOOK_ELEMENT_FAST(c,z+i) + last;
+         output[output_off+i] += c.multiplicands[z+i];
       }
    }
    return true;
@@ -1348,30 +1307,16 @@ function codebook_decode(f, c, output, output_off, len)
 //1743
 function codebook_decode_step(f, c, output, output_off, len, step)
 {
-   var z = codebook_decode_start(f,c,len);//int_
-   var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
+   var z = codebook_decode_start(f,c,len);
+   var last = 0;
    if (z < 0) return false;
    if (len > c.dimensions) {
      len = c.dimensions;
    }
 
-//#ifdef STB_VORBIS_DIVIDES_IN_CODEBOOK
-//   if (c->lookup_type == 1) {
-//      int div = 1;
-//      for (i=0; i < len; ++i) {
-//         int off = (z / div) % c->lookup_values;
-//         float val = CODEBOOK_ELEMENT_FAST(c,off) + last;
-//         output[i*step] += val;
-//         if (c->sequence_p) last = val;
-//         div *= c->lookup_values;
-//      }
-//      return TRUE;
-//   }
-//#endif
-
    z *= c.dimensions;
    for (var i = 0; i < len; ++i) {
-      var val = c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
+      var val = c.multiplicands[z+i] + last;
       output[output_off+ i*step] += val;
       if (c.sequence_p) last = val;
    }
@@ -1380,145 +1325,141 @@ function codebook_decode_step(f, c, output, output_off, len, step)
 }
 
 //1774
-function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_inter_p, len, total_decode)
-{
-   var c_inter = c_inter_p[0];//int_ = *
-   var p_inter = p_inter_p[0];//int_ = *
-   var i=int_,z=[int_], effective = c.dimensions;//int_
+function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_inter_p, len, total_decode) {
+  var c_inter = c_inter_p[0];//int_ = *
+  var p_inter = p_inter_p[0];//int_ = *
+  var i, z, last, effective = c.dimensions;
 
 
-   // type 0 is only legal in a scalar context
-   if (c.lookup_type === 0)   return error(f, VORBIS_invalid_stream);
+  // type 0 is only legal in a scalar context
+  if (c.lookup_type === 0) {
+    return error(f, VORBIS_invalid_stream);
+  }
 
-   while (total_decode > 0) {
-      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
-      DECODE_RAW(z,f,c);
-//      #ifndef STB_VORBIS_DIVIDES_IN_CODEBOOK
-      // assert(!c.sparse || z[0] < c.sorted_entries);
-//      #endif
-      if (z[0] < 0) {
-         if (!f.bytes_in_seg)
-            if (f.last_seg === true) return false;
-         return error(f, VORBIS_invalid_stream);
-      }
+  while (total_decode > 0) {
+    last = 0;
+    z = DECODE_RAW(f,c);
+
+    if (z < 0) {
+      if (!f.bytes_in_seg)
+        if (f.last_seg === true) return false;
+      return error(f, VORBIS_invalid_stream);
+    }
 
       // if this will take us off the end of the buffers, stop short!
       // we check by computing the length of the virtual interleaved
       // buffer (len*ch), our current offset within it (p_inter*ch)+(c_inter),
       // and the length we'll be using (effective)
-      if (c_inter + p_inter*ch + effective > len * ch) {
-         effective = len*ch - (p_inter*ch - c_inter);
-      }
+    if (c_inter + p_inter*ch + effective > len * ch) {
+      effective = len*ch - (p_inter*ch - c_inter);
+    }
 
-//   #ifdef STB_VORBIS_DIVIDES_IN_CODEBOOK
-//      if (c->lookup_type == 1) {
-//         int div = 1;
-//         for (i=0; i < effective; ++i) {
-//            int off = (z / div) % c->lookup_values;
-//            float val = CODEBOOK_ELEMENT_FAST(c,off) + last;
-//            outputs[c_inter][p_inter] += val;
-//            if (++c_inter == ch) { c_inter = 0; ++p_inter; }
-//            if (c->sequence_p) last = val;
-//            div *= c->lookup_values;
-//         }
-//      } else
-//   #endif
-      {
-         z[0] *= c.dimensions;
-         if (c.sequence_p) {
-            for (i=0; i < effective; ++i) {
-               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
-               outputs[c_inter][p_inter] += val;
-               if (++c_inter === ch) { c_inter = 0; ++p_inter; }
-               last = val;
-            }
-         } else {
-            for (i=0; i < effective; ++i) {
-               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
-               outputs[c_inter][p_inter] += val;
-               if (++c_inter == ch) { c_inter = 0; ++p_inter; }
-            }
-         }
+    z *= c.dimensions;
+    if (c.sequence_p) {
+      for (i=0; i < effective; ++i) {
+        var val = c.multiplicands[z+i] + last;
+        outputs[c_inter][p_inter] += val;
+        if (++c_inter === ch) {
+          c_inter = 0;
+          ++p_inter;
+        }
+        last = val;
       }
+    } else {
+      for (i=0; i < effective; ++i) {
+        var val = c.multiplicands[z+i] + last;
+        outputs[c_inter][p_inter] += val;
+        if (++c_inter == ch) {
+          c_inter = 0;
+          ++p_inter;
+        }
+      }
+    }
 
-      total_decode -= effective;
-   }
-   c_inter_p[0] = c_inter;//*
-   p_inter_p[0] = p_inter;//*
-   return true;
+    total_decode -= effective;
+  }
+  c_inter_p[0] = c_inter;//*
+  p_inter_p[0] = p_inter;//*
+  return true;
 }
 
 //#ifndef STB_VORBIS_DIVIDES_IN_CODEBOOK
 //1842
-function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter_p, len, total_decode)
-{
-   var c_inter = c_inter_p[0];//int_ = *
-   var p_inter = p_inter_p[0];//int_ = *
-   var i=int_,z=[int_], effective = c.dimensions;//int_
+function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter_p, len, total_decode) {
+  var c_inter = c_inter_p[0];//int_ = *
+  var p_inter = p_inter_p[0];//int_ = *
+  var i, z, last, effective = c.dimensions;//int_
 
-   // type 0 is only legal in a scalar context
-   if (c.lookup_type === 0)   return error(f, VORBIS_invalid_stream);
+  // type 0 is only legal in a scalar context
+  if (c.lookup_type === 0) {
+    return error(f, VORBIS_invalid_stream);
+  }
 
-   while (total_decode > 0) {
-      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
-      DECODE_RAW(z,f,c);
+  while (total_decode > 0) {
+    last = 0;
+    z = DECODE_RAW(f,c);
 
-      if (z[0] < 0) {
-         if (!f.bytes_in_seg)
-            if (f.last_seg === true) return false;
-         return error(f, VORBIS_invalid_stream);
+    if (z < 0) {
+      if (!f.bytes_in_seg && f.last_seg === true) {
+        return false;
+      }
+      return error(f, VORBIS_invalid_stream);
+    }
+
+    // if this will take us off the end of the buffers, stop short!
+    // we check by computing the length of the virtual interleaved
+    // buffer (len*ch), our current offset within it (p_inter*ch)+(c_inter),
+    // and the length we'll be using (effective)
+    if (c_inter + p_inter*2 + effective > len * 2) {
+      effective = len*2 - (p_inter*2 - c_inter);
+    }
+
+    z *= c.dimensions;
+    stb_prof(11);
+    if (c.sequence_p) {
+      // haven't optimized this case because I don't have any examples
+      for (i = 0; i < effective; ++i) {
+        var val = c.multiplicands[z+i] + last;
+        outputs[c_inter][p_inter] += val;
+        if (++c_inter == 2) {
+          c_inter = 0;
+          ++p_inter;
+        }
+        last = val;
+      }
+    } else {
+      i = 0;
+      if (c_inter === 1) {
+        var val = c.multiplicands[z+i] + last;
+        outputs[c_inter][p_inter] += val;
+        c_inter = 0; ++p_inter;
+        ++i;
       }
 
-      // if this will take us off the end of the buffers, stop short!
-      // we check by computing the length of the virtual interleaved
-      // buffer (len*ch), our current offset within it (p_inter*ch)+(c_inter),
-      // and the length we'll be using (effective)
-      if (c_inter + p_inter*2 + effective > len * 2) {
-         effective = len*2 - (p_inter*2 - c_inter);
+      var z0 = outputs[0];//float_ *
+      var z1 = outputs[1];//float_ *
+      for (; i+1 < effective;) {
+        z0[p_inter] += c.multiplicands[z+i] + last;
+        z1[p_inter] += c.multiplicands[z+i+1] + last;
+        ++p_inter;
+        i += 2;
       }
 
-      {
-         z[0] *= c.dimensions;
-         stb_prof(11);
-         if (c.sequence_p) {
-            // haven't optimized this case because I don't have any examples
-            for (i=0; i < effective; ++i) {
-               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
-               outputs[c_inter][p_inter] += val;
-               if (++c_inter == 2) { c_inter = 0; ++p_inter; }
-               last = val;
-            }
-         } else {
-            i=0;
-            if (c_inter === 1) {
-               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
-               outputs[c_inter][p_inter] += val;
-               c_inter = 0; ++p_inter;
-               ++i;
-            }
-            {
-               var z0 = outputs[0];//float_ *
-               var z1 = outputs[1];//float_ *
-               for (; i+1 < effective;) {
-                  z0[p_inter] += c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;
-                  z1[p_inter] += c.multiplicands[z[0]+i+1] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i+1) + last;
-                  ++p_inter;
-                  i += 2;
-               }
-            }
-            if (i < effective) {
-               var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
-               outputs[c_inter][p_inter] += val;
-               if (++c_inter === 2) { c_inter = 0; ++p_inter; }
-            }
-         }
+      if (i < effective) {
+        var val = c.multiplicands[z+i] + last;
+        outputs[c_inter][p_inter] += val;
+        if (++c_inter === 2) {
+          c_inter = 0;
+          ++p_inter;
+        }
       }
+    }
 
-      total_decode -= effective;
-   }
-   c_inter_p[0] = c_inter;//*
-   p_inter_p[0] = p_inter;//*
-   return true;
+    total_decode -= effective;
+  }
+  c_inter_p[0] = c_inter;//*
+  p_inter_p[0] = p_inter;//*
+  return true;
 }
 //#endif
 
@@ -1720,9 +1661,7 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
           c_inter = [(z & 1)], p_inter = [z>>>1];//int_
           if (pass === 0) {
             c = f.codebooks[+r.classbook];//Codebook *
-            q = [int_];
-            DECODE(q, f, c);
-            q = q[0];
+            q = DECODE(f, c);
             if (q === EOP) {//goto done;
               stb_prof(0);
               f.temp_offset = temp_alloc_point;
@@ -1780,9 +1719,7 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
           var c_inter = [0], p_inter = [z];//int_
           if (pass === 0) {
             var c = f.codebooks[r.classbook];//Codebook *
-            var q = [int_];
-            DECODE(q, f, c);
-            q = q[0];
+            q = DECODE(f, c);
             if (q === EOP) { //goto done;
               stb_prof(0);
               f.temp_offset = temp_alloc_point;
@@ -1831,8 +1768,7 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
           var c_inter = [z % ch], p_inter = [parseInt(z/ch,10)];//int_
           if (pass === 0) {
             var c = f.codebooks[+r.classbook];//Codebook *
-            var q=[int_];
-            DECODE(q,f,c);q=q[0];
+            var q = DECODE(f, c);
             if (q === EOP) { //goto done;
               stb_prof(0);
               f.temp_offset = temp_alloc_point;
@@ -1891,12 +1827,10 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
     var pcount = 0, class_set = 0;//int_
     while (pcount < part_read) {
       if (pass === 0) {
-        temp = [0], c;
         for (j=0; j < ch; ++j) {
           if (do_not_decode[j] === false) {
             c = f.codebooks[r.classbook];//Codebook *
-            DECODE(temp, f, c);
-            temp = temp[0];
+            temp = DECODE(f, c);
             if (temp === EOP) { //goto done;
               stb_prof(0);
               f.temp_offset = temp_alloc_point;
@@ -2643,33 +2577,28 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
     } else {
       var g = f.floor_config[floor1].floor1;//Floor1 * = &
       if (get_bits(f, 1)) {
-        var finalY = short_;//*
         // var step2_flag = new Uint8Array(256);//uint8
         // var step2_flag = Array(256);//uint8
         var range = RANGE_LIST[g.floor1_multiplier-1];//int_
-        var offset = 2;//int_
-        finalY = f.finalY[i];
+        var offset = 2;
+        var finalY = f.finalY[i];
         finalY[0] = get_bits(f, ilog(range)-1);
         finalY[1] = get_bits(f, ilog(range)-1);
+        var pclass, cdim, cbits, csub, cval;
         for (j = 0; j < g.partitions; ++j) {
-          var pclass = g.partition_class_list[j];//int_
-          var cdim = g.class_dimensions[pclass];//int_
-          var cbits = g.class_subclasses[pclass];//int_
-          var csub = ((1 << cbits)>>>0)-1;//int_
-          var cval = [0];//int_
+          pclass = g.partition_class_list[j];//int_
+          cdim = g.class_dimensions[pclass];//int_
+          cbits = g.class_subclasses[pclass];//int_
+          csub = ((1 << cbits)>>>0)-1;//int_
           if (cbits) {
             var c = f.codebooks[g.class_masterbooks[pclass]];//Codebook *
-            DECODE(cval,f,c);
-            cval=cval[0];
+            cval = DECODE(f, c);
           }
           for (k = 0; k < cdim; ++k) {
             var book = g.subclass_books[pclass][cval & csub];//int_
             cval = cval >>> cbits;
             if (book >= 0) {
-              var temp=[int_];
-              var c = f.codebooks[ + book];//Codebook *
-              DECODE(temp,f,c);
-              finalY[offset++] = temp[0];
+              finalY[offset++] = DECODE(f, f.codebooks[book]);
             } else {
               finalY[offset++] = 0;
             }
