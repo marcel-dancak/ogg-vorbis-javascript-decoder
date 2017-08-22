@@ -6,6 +6,8 @@
 // License: CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 
+// Remove all >>>0 ?
+
 (function() {
 
 function error (f, err) {
@@ -233,7 +235,7 @@ var
 //     I forgot to account for. Can probably go as low as 8 (7.1 audio),
 //     6 (5.1 audio), or 2 (stereo only).
 //#ifndef STB_VORBIS_MAX_CHANNELS
-var STB_VORBIS_MAX_CHANNELS = 16;  // enough for anyone?
+var STB_VORBIS_MAX_CHANNELS = 2;  // enough for anyone?
 //#endif
 
 //403
@@ -489,7 +491,7 @@ var stb_vorbis = function()
   this.bytes_in_seg = uint8;
   this.first_decode = uint8;
   this.next_seg = int_;
-  this.last_seg = int_;  // flag that we're on the last segment
+  this.last_seg = false;  // flag that we're on the last segment
   this.last_seg_which = int_; // what was the segment number of the last seg?
   this.acc = uint32;
   this.valid_bits = int_;
@@ -524,12 +526,10 @@ function stb_prof(x)  { return 0 }
 //#elif defined(STB_VORBIS_NO_PULLDATA_API)
 //  #define IS_PUSH_MODE(f)  TRUE
 //#else
-  function IS_PUSH_MODE(f)  { return ((f).push_mode) }
+  // function IS_PUSH_MODE(f)  { return ((f).push_mode) }
 //#endif
 
 //851
-function temp_alloc_save(f)             { return ((f).temp_offset) }
-function temp_alloc_restore(f,p)         { return ((f).temp_offset = (p)) }
 
 var CRC32_POLY    = 0x04c11db7;   // from spec
 
@@ -622,14 +622,16 @@ function add_entry(c, huff_code, symbol, count, len, values)
 }
 
 //1004
-function compute_codewords(c, len, n, values)
-{
-   var i=int_,k=int_,m=0;//int_
-   var available = new Uint32Array(32)//.fill(0);
+var _available = new Uint32Array(32);
+function compute_codewords(c, len, n, values) {
+   var i = 0, k = 0, m = 0;
+   var available = _available;
    // memset(available, 0, 0, 32);//sizeof(available)
 
    // find the first entry
-   for (k=0; k < n; ++k) if (len[k] < NO_CODE) break;
+   for (k=0; k < n; ++k) {
+     if (len[k] < NO_CODE) break;
+   }
    if (k === n) {
       // assert(c.sorted_entries === 0);
       return true;
@@ -637,8 +639,10 @@ function compute_codewords(c, len, n, values)
    // add to the list
    add_entry(c, 0, k, m++, len[k], values);
    // add all available leaves
-   for (i=1; i <= len[k]; ++i)
+   for (i=1; i <= len[k]; ++i) {
       available[i] = (1 << (32-i))>>>0;
+   }
+
    // note that the above code treats the first case specially,
    // but it's really the same as the following code, so they
    // could probably be combined (except the initial code is 0,
@@ -646,7 +650,7 @@ function compute_codewords(c, len, n, values)
    for (i=k+1; i < n; ++i) {
       var res=uint32;
       var z = len[i], y=int_;//int_
-      if (z == NO_CODE) continue;
+      if (z === NO_CODE) continue;
       // find lowest available leaf (should always be earliest,
       // which is what the specification calls for)
       // note that this property, and the fact we can never have
@@ -654,17 +658,17 @@ function compute_codewords(c, len, n, values)
       // trivial to prove, but it seems true and the assert never
       // fires, so!
       while (z > 0 && !available[z]) --z;
-      if (z === 0) {
-        // assert(0);
-        return false;
-      }
+      // if (z === 0) {
+      //   assert(0);
+      //   return false;
+      // }
       res = available[z];
       available[z] = 0;
       add_entry(c, bit_reverse(res), i, m++, len[i], values);
       // propogate availability up the tree
-      if (z != len[i]) {
+      if (z !== len[i]) {
          for (y=len[i]; y > z; --y) {
-            assert(available[y] === 0);
+            // assert(available[y] === 0);
             available[y] = res + ((1 << (32-y)))>>>0;
          }
       }
@@ -730,17 +734,20 @@ function compute_sorted_huffman(c, lengths, values)
    // but it's like 4 extra lines of code, so.
    if (!c.sparse) {
       var k = 0;//int_
-      for (i=0; i < c.entries; ++i)
-         if (include_in_sort(c, lengths[i])) 
+      var len = c.entries;
+      for (i=0; i < len; ++i)
+         if (include_in_sort(c, lengths[i])) {
             c.sorted_codewords[k++] = bit_reverse(c.codewords[i]);
+         }
       // assert(k === c.sorted_entries);
    } else {
-      for (i=0; i < c.sorted_entries; ++i)
+      for (i=0; i < c.sorted_entries; ++i) {
          c.sorted_codewords[i] = bit_reverse(c.codewords[i]);
+       }
    }
 
-   c.sorted_codewords.sort(uint32_compare);//qsort(c->sorted_codewords, c->sorted_entries, sizeof(c->sorted_codewords[0]), uint32_compare);
-   c.sorted_codewords[c.sorted_entries] = 0xffffffff;
+   c.sorted_codewords.sort();//qsort(c->sorted_codewords, c->sorted_entries, sizeof(c->sorted_codewords[0]), uint32_compare);
+   // c.sorted_codewords[c.sorted_entries] = 0xffffffff;
 
    len = c.sparse ? c.sorted_entries : c.entries;
    // now we need to indicate how they correspond; we could either
@@ -860,16 +867,8 @@ function neighbors(x, n, plow, phigh) {
   }
 }
 
-// this has been repurposed so y is now the original index instead of y
-//1223
-var Point = function() {
-  this.x = 52428;//uint16
-  this.y = 52428;//uint16
-};
-
-//1228
 function point_compare(a, b) {
-  return a.x < b.x ? -1 : a.x > b.x;
+  return a[0] - b[0];
 }
 
 //
@@ -947,7 +946,7 @@ var PAGEFLAG_last_page          = 4;
 function start_page_no_capturepattern(f) {
   var loc0=uint32,loc1=uint32,n=uint32,i=uint32;
   // stream structure version
-  if (0 != get8(f)) {
+  if (0 !== get8(f)) {
     return error(f, VORBIS_invalid_stream_structure_version);
   }
   // header flag
@@ -1060,7 +1059,7 @@ function next_segment(f) {
   if (f.next_seg === -1) {
     f.last_seg_which = f.segment_count-1; // in case start_page fails
     if (!start_page(f)) {
-      f.last_seg = 1;
+      f.last_seg = true;
       return 0;
     }
     if (!(f.page_flag & PAGEFLAG_continued_packet)) {
@@ -1087,7 +1086,7 @@ var INVALID_BITS  = (-1);
 function get8_packet_raw(f)
 {
    if (!f.bytes_in_seg)
-      if (f.last_seg) return EOP;
+      if (f.last_seg === true) return EOP;
       else if (!next_segment(f)) return EOP;
    // assert(f.bytes_in_seg > 0);
    --f.bytes_in_seg;
@@ -1104,9 +1103,8 @@ function get8_packet(f)
 }
 
 //1490
-function flush_packet(f)
-{
-   while (get8_packet_raw(f) != EOP);
+function flush_packet(f) {
+   while (get8_packet_raw(f) !== EOP);
 }
 
 // @OPTIMIZE: this is the secondary bit decoder, so it's probably not as important
@@ -1114,7 +1112,7 @@ function flush_packet(f)
 //1497
 function get_bits(f, n)
 {
-   var z=uint32;
+   var z;//uint32
 
    if (f.valid_bits < 0) return 0;
    if (f.valid_bits < n) {
@@ -1124,10 +1122,10 @@ function get_bits(f, n)
          z += (get_bits(f, n-24) << 24)>>>0;
          return z;
       }
-      if (f.valid_bits == 0) f.acc = 0;
+      if (f.valid_bits === 0) f.acc = 0;
       while (f.valid_bits < n) {
          var z = get8_packet_raw(f);//int_
-         if (z == EOP) {
+         if (z === EOP) {
             f.valid_bits = INVALID_BITS;
             return 0;
          }
@@ -1150,12 +1148,15 @@ function get_bits(f, n)
 function prep_huffman(f)
 {
    if (f.valid_bits <= 24) {
-      if (f.valid_bits == 0) f.acc = 0;
+      if (f.valid_bits === 0) {
+        f.acc = 0;
+      }
       do {
-         var z=int_;
-         if (f.last_seg && !f.bytes_in_seg) return;
-         z = get8_packet_raw(f);
-         if (z == EOP) return;
+        if (f.last_seg === true && !f.bytes_in_seg) {
+          return;
+        }
+         var z = get8_packet_raw(f);
+         if (z === EOP) return;
          f.acc += (z << f.valid_bits)>>>0;
          f.valid_bits += 8;
       } while (f.valid_bits <= 24);
@@ -1175,16 +1176,14 @@ var
 //1561
 function codebook_decode_scalar_raw(f, c)
 {
-   var i=int_;
    prep_huffman(f);
-
    // assert(c.sorted_codewords || c.codewords);
    // cases to use binary search: sorted_codewords && !c->codewords
    //                             sorted_codewords && c->entries > 8
    if (c.entries > 8 ? c.sorted_codewords !== null : !c.codewords) {
       // binary search
       var code = bit_reverse(f.acc);//uint32
-      var x=0, n=c.sorted_entries, len=int_;//int_
+      var x=0, n=c.sorted_entries;//int_
 
       while (n > 1) {
          // invariant: sc[x] <= code < sc[x+n]
@@ -1199,7 +1198,7 @@ function codebook_decode_scalar_raw(f, c)
       // x is now the sorted index
       if (!c.sparse) x = c.sorted_values[x];
       // x is now sorted index if sparse, or symbol otherwise
-      len = c.codeword_lengths[x];
+      var len = c.codeword_lengths[x];
       if (f.valid_bits >= len) {
          f.acc >>>= len;
          f.valid_bits -= len;
@@ -1212,7 +1211,7 @@ function codebook_decode_scalar_raw(f, c)
 
    // if small, linear search
    // assert(!c.sparse);
-   for (i=0; i < c.entries; ++i) {
+   for (var i = 0; i < c.entries; ++i) {
       if (c.codeword_lengths[i] === NO_CODE) continue;
       if (c.codewords[i] === (f.acc & (((1 << c.codeword_lengths[i])>>>0)-1))) {
          if (f.valid_bits >= c.codeword_lengths[i]) {
@@ -1234,14 +1233,14 @@ function codebook_decode_scalar_raw(f, c)
 //#ifndef STB_VORBIS_NO_INLINE_DECODE
 
 //1637
-function DECODE_RAW(var_, f,c) {
+function DECODE_RAW(var_, f, c) {
    if (f.valid_bits < STB_VORBIS_FAST_HUFFMAN_LENGTH) {
       prep_huffman(f);
    }
-   var_[0] = f.acc & FAST_HUFFMAN_TABLE_MASK;
-   var_[0] = c.fast_huffman[var_[0]];
-   if (var_[0] >= 0) {
-      var n = c.codeword_lengths[var_[0]];//int_
+   var tmp = c.fast_huffman[f.acc & FAST_HUFFMAN_TABLE_MASK];
+   if (tmp >= 0) {
+    var_[0] = tmp;
+      var n = c.codeword_lengths[tmp];
       f.acc >>>= n;
       f.valid_bits -= n;
       if (f.valid_bits < 0) {
@@ -1249,7 +1248,7 @@ function DECODE_RAW(var_, f,c) {
         var_[0] = -1;
       }
    } else {
-      var_[0] = codebook_decode_scalar_raw(f,c);
+      var_[0] = codebook_decode_scalar_raw(f, c);
    }
 }
 
@@ -1262,7 +1261,7 @@ function DECODE_RAW(var_, f,c) {
 //1657
 function DECODE(var_,f,c) {
   DECODE_RAW(var_, f, c);
-  if (c.sparse) {
+  if (c.sparse !== 0) {
     var_[0] = c.sorted_values[var_[0]];
   }
 }
@@ -1277,7 +1276,7 @@ function DECODE(var_,f,c) {
 //   #define CODEBOOK_ELEMENT_BASE(c)         (c->minimum_value)
 //#else
    // function CODEBOOK_ELEMENT(c,off)          { return (c.multiplicands[off]) }
-   function CODEBOOK_ELEMENT_FAST(c,off)     { console.log('FAST');return (c.multiplicands[off]) }
+   function CODEBOOK_ELEMENT_FAST(c,off)     { return (c.multiplicands[off]) }
    function CODEBOOK_ELEMENT_BASE(c)         { return (0) }
 //#endif
 
@@ -1285,7 +1284,6 @@ function DECODE(var_,f,c) {
 function codebook_decode_start(f, c, len)
 {
   var z = [-1];//int_
-
   // type 0 is only legal in a scalar context
   if (c.lookup_type === 0) {
     error(f, VORBIS_invalid_stream);
@@ -1295,7 +1293,7 @@ function codebook_decode_start(f, c, len)
     //   assert(z < c.sorted_entries);
     // }
     if (z[0] < 0) {  // check for EOP
-      if (!f.bytes_in_seg && f.last_seg) {
+      if (f.last_seg === true && !f.bytes_in_seg) {
         return z[0];
       }
       error(f, VORBIS_invalid_stream);
@@ -1307,9 +1305,12 @@ function codebook_decode_start(f, c, len)
 //1704
 function codebook_decode(f, c, output, output_off, len)
 {
-   var i=int_,z = codebook_decode_start(f,c,len);//int_
+   var z = codebook_decode_start(f, c, len);//int_
    if (z < 0) return false;
-   if (len > c.dimensions) len = c.dimensions;
+   if (len > c.dimensions) {
+      len = c.dimensions;
+   }
+   // console.log('decode')
 
 //#ifdef STB_VORBIS_DIVIDES_IN_CODEBOOK
 //   if (c->lookup_type == 1) {
@@ -1326,31 +1327,33 @@ function codebook_decode(f, c, output, output_off, len)
 //   }
 //#endif
 
+  
    z *= c.dimensions;
    if (c.sequence_p) {
       var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
-      for (i=0; i < len; ++i) {
+      for (var i = 0; i < len; ++i) {
          var val = c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
          output[output_off+ i] += val;
          last = val + c.minimum_value;
       }
    } else {
-      var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
-      for (i=0; i < len; ++i) {
-         output[output_off+ i] += c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;
+      // var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
+      for (var i = 0; i < len; ++i) {
+         output[output_off+i] += c.multiplicands[z+i];//CODEBOOK_ELEMENT_FAST(c,z+i) + last;
       }
    }
-
    return true;
 }
 
 //1743
 function codebook_decode_step(f, c, output, output_off, len, step)
 {
-   var i=int_,z = codebook_decode_start(f,c,len);//int_
+   var z = codebook_decode_start(f,c,len);//int_
    var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
    if (z < 0) return false;
-   if (len > c.dimensions) len = c.dimensions;
+   if (len > c.dimensions) {
+     len = c.dimensions;
+   }
 
 //#ifdef STB_VORBIS_DIVIDES_IN_CODEBOOK
 //   if (c->lookup_type == 1) {
@@ -1367,7 +1370,7 @@ function codebook_decode_step(f, c, output, output_off, len, step)
 //#endif
 
    z *= c.dimensions;
-   for (i=0; i < len; ++i) {
+   for (var i = 0; i < len; ++i) {
       var val = c.multiplicands[z+i] + last;//CODEBOOK_ELEMENT_FAST(c,z+i) + last;//float_
       output[output_off+ i*step] += val;
       if (c.sequence_p) last = val;
@@ -1383,8 +1386,9 @@ function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_int
    var p_inter = p_inter_p[0];//int_ = *
    var i=int_,z=[int_], effective = c.dimensions;//int_
 
+
    // type 0 is only legal in a scalar context
-   if (c.lookup_type == 0)   return error(f, VORBIS_invalid_stream);
+   if (c.lookup_type === 0)   return error(f, VORBIS_invalid_stream);
 
    while (total_decode > 0) {
       var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
@@ -1394,7 +1398,7 @@ function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_int
 //      #endif
       if (z[0] < 0) {
          if (!f.bytes_in_seg)
-            if (f.last_seg) return false;
+            if (f.last_seg === true) return false;
          return error(f, VORBIS_invalid_stream);
       }
 
@@ -1425,7 +1429,7 @@ function codebook_decode_deinterleave_repeat(f, c, outputs, ch, c_inter_p, p_int
             for (i=0; i < effective; ++i) {
                var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
-               if (++c_inter == ch) { c_inter = 0; ++p_inter; }
+               if (++c_inter === ch) { c_inter = 0; ++p_inter; }
                last = val;
             }
          } else {
@@ -1453,7 +1457,7 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
    var i=int_,z=[int_], effective = c.dimensions;//int_
 
    // type 0 is only legal in a scalar context
-   if (c.lookup_type == 0)   return error(f, VORBIS_invalid_stream);
+   if (c.lookup_type === 0)   return error(f, VORBIS_invalid_stream);
 
    while (total_decode > 0) {
       var last = 0;//CODEBOOK_ELEMENT_BASE(c);//float_
@@ -1461,7 +1465,7 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
 
       if (z[0] < 0) {
          if (!f.bytes_in_seg)
-            if (f.last_seg) return false;
+            if (f.last_seg === true) return false;
          return error(f, VORBIS_invalid_stream);
       }
 
@@ -1486,7 +1490,7 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
             }
          } else {
             i=0;
-            if (c_inter == 1) {
+            if (c_inter === 1) {
                var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
                c_inter = 0; ++p_inter;
@@ -1505,7 +1509,7 @@ function codebook_decode_deinterleave_repeat_2(f, c, outputs, c_inter_p, p_inter
             if (i < effective) {
                var val = c.multiplicands[z[0]+i] + last;//CODEBOOK_ELEMENT_FAST(c,z[0]+i) + last;//float_
                outputs[c_inter][p_inter] += val;
-               if (++c_inter == 2) { c_inter = 0; ++p_inter; }
+               if (++c_inter === 2) { c_inter = 0; ++p_inter; }
             }
          }
       }
@@ -1600,15 +1604,12 @@ var inverse_db_table = Float32Array.of( //static float_
 
 
 //2013
-function draw_line(output, x0, y0, x1, y1, n)
+function draw_line(output, x, y, x1, y1, n)
 {
-   var dy = y1 - y0;//int_
-   var adx = x1 - x0;//int_
+   var dy = y1 - y;//int_
+   var adx = x1 - x;//int_
    var ady = Math.abs(dy);//int_
-   var base=int_;
-   var x=x0,y=y0;//int_
-   var err = 0;//int_
-   var sy=int_;
+   var err = 0;
 
 //#ifdef STB_VORBIS_DIVIDE_TABLE
 //   if (adx < DIVTAB_DENOM && ady < DIVTAB_NUMER) {
@@ -1627,14 +1628,13 @@ function draw_line(output, x0, y0, x1, y1, n)
 //         sy = base+1;
 //   }
 //#else
-   base = parseInt(dy / adx,10);
-   if (dy < 0)
-      sy = base - 1;
-   else
-      sy = base+1;
+   var base = parseInt(dy / adx,10);
+   var sy = dy < 0? base-1 : base+1;
 //#endif
    ady -= Math.abs(base) * adx;
-   if (x1 > n) x1 = n;
+   if (x1 > n) {
+     x1 = n;
+   }
    output[x] *= inverse_db_table[y];//LINE_OP(output[x], inverse_db_table[y]);
    for (++x; x < x1; ++x) {
       err += ady;
@@ -1649,16 +1649,17 @@ function draw_line(output, x0, y0, x1, y1, n)
 
 //2060
 function residue_decode(f, book, target, offset, n, rtype) {
-  var k = int_;
+  var k = 0;
+
   if (rtype === 0) {
     var step = parseInt(n / book.dimensions);//int_
-    for (k = 0; k < step; ++k) {
+    for ( ; k < step; ++k) {
       if (!codebook_decode_step(f, book, target, offset+k, n-offset-k, step)) {
         return false;
       }
     }
   } else {
-    for (k = 0; k < n; ) {
+    while (k < n) {
       if (!codebook_decode(f, book, target, offset, n-k)) {
         return false;
       }
@@ -1671,270 +1672,275 @@ function residue_decode(f, book, target, offset, n, rtype) {
 
 //2079
 function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
-   var i=int_,j=int_,pass=int_;
-   var r = f.residue_config[ + rn];//Residue *
-   var rtype = f.residue_types[rn];//int_
-   var c = r.classbook;//int_
-   var classwords = f.codebooks[c].dimensions;//int_
-   var n_read = r.end - r.begin;//int_
-   var part_read = parseInt(n_read / r.part_size,10);//int_
-   var temp_alloc_point = temp_alloc_save(f);//int_
-//   #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-    var part_classdata = Arr_new(f.channels, Array);//uint8 ***part_classdata = (uint8 ***) temp_block_array(f,f->channels, part_read * sizeof(**part_classdata));
-//   #else
-//   int **classifications = (int **) temp_block_array(f,f->channels, part_read * sizeof(**classifications));
-//   #endif
+  var i, j, pass;
+  var r = f.residue_config[rn];//Residue *
+  var rtype = f.residue_types[rn];//int_
+  var c = r.classbook;//int_
+  var classwords = f.codebooks[c].dimensions;//int_
+  var n_read = r.end - r.begin;//int_
+  var part_read = parseInt(n_read / r.part_size,10);//int_
+  var temp_alloc_point = f.temp_offset;//int_
+//#ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+  var part_classdata = Arr_new(f.channels, Array);//uint8 ***part_classdata = (uint8 ***) temp_block_array(f,f->channels, part_read * sizeof(**part_classdata));
+//#else
+//int **classifications = (int **) temp_block_array(f,f->channels, part_read * sizeof(**classifications));
+//#endif
 
-   stb_prof(2);
-   for (i = 0; i < ch; ++i) {
-      if (!do_not_decode[i]) {
-         // memset(residue_buffers[i], 0, 0, n);//sizeof(float) *
-         residue_buffers[i].fill(0, 0, n);
+  stb_prof(2);
+  for (i = 0; i < ch; ++i) {
+    if (do_not_decode[i] === false) {
+      // memset(residue_buffers[i], 0, 0, n);//sizeof(float) *
+      residue_buffers[i].fill(0, 0, n);
+      // console.log(residue_buffers[i])
+    }
+  }
+
+  if (rtype === 2 && ch !== 1) {
+    for (j=0; j < ch; ++j) {
+      if (do_not_decode[j] === false) {
+        break;
       }
     }
-   if (rtype === 2 && ch !== 1) {
-      var len = ch * n;//int_
-      for (j=0; j < ch; ++j)
-         if (!do_not_decode[j])
-            break;
-      if (j === ch) {
-         //goto done;
-         stb_prof(0);
-         temp_alloc_restore(f,temp_alloc_point);
-     return;
-    }
-
-      stb_prof(3);
-      for (pass = 0; pass < 8; ++pass) {
-         var pcount = 0, class_set = 0;//int_
-         if (ch === 2) {
-            stb_prof(13);
-            while (pcount < part_read) {
-               var z = r.begin + pcount*r.part_size;//int_
-               var c_inter = [(z & 1)], p_inter = [z>>>1];//int_
-               if (pass === 0) {
-                  var c = f.codebooks[+r.classbook];//Codebook *
-                  var q=[int_];
-                  DECODE(q,f,c);
-                  q=q[0];
-                  if (q === EOP) {//goto done;
-                     stb_prof(0);
-                     temp_alloc_restore(f,temp_alloc_point);
-           return;
-          }
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  part_classdata[0][class_set] = r.classdata[q];
-//                  #else
-//                  for (i=classwords-1; i >= 0; --i) {
-//                     classifications[0][i+pcount] = q % r->classifications;
-//                     q /= r->classifications;
-//                  }
-//                  #endif
-               }
-               stb_prof(5);
-               for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
-                  var z = r.begin + pcount*r.part_size;//int_
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  var c = part_classdata[0][class_set][i];//int_
-//                  #else
-//                  int c = classifications[0][pcount];
-//                  #endif
-                  var b = r.residue_books[c][pass];//int_
-                  if (b >= 0) {
-                     var book = f.codebooks[ + b];//Codebook *
-                     stb_prof(20);  // accounts for X time
-//                     #ifdef STB_VORBIS_DIVIDES_IN_CODEBOOK
-//                     if (!codebook_decode_deinterleave_repeat(f, book, residue_buffers, ch, &c_inter, &p_inter, n, r->part_size))
-//                        goto done;
-//                     #else
-                     // saves 1%
-                     if (!codebook_decode_deinterleave_repeat_2(f, book, residue_buffers, c_inter, p_inter, n, r.part_size)) {
-                        //goto done;
-                        stb_prof(0);
-                        temp_alloc_restore(f,temp_alloc_point);
-            return;
-           }
-//                     #endif
-                     stb_prof(7);
-                  } else {
-                     z += r.part_size;
-                     c_inter[0] = z & 1;
-                     p_inter[0] = z >>> 1;
-                  }
-               }
-               stb_prof(8);
-//               #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-               ++class_set;
-//               #endif
-            }
-         } else if (ch === 1) {
-            while (pcount < part_read) {
-               var z = r.begin + pcount*r.part_size;//int_
-               var c_inter = [0], p_inter = [z];//int_
-               if (pass === 0) {
-                  var c = f.codebooks[+r.classbook];//Codebook *
-                  var q=[int_];
-                  DECODE(q,f,c);q=q[0];
-                  if (q === EOP) { //goto done;
-                     stb_prof(0);
-                     temp_alloc_restore(f,temp_alloc_point);
-           return;
-          }
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  part_classdata[0][class_set] = r.classdata[q];
-//                  #else
-//                  for (i=classwords-1; i >= 0; --i) {
-//                     classifications[0][i+pcount] = q % r->classifications;
-//                     q /= r->classifications;
-//                  }
-//                  #endif
-               }
-               for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
-                  var z = r.begin + pcount*r.part_size;//int_
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  var c = part_classdata[0][class_set][i];//int_
-//                  #else
-//                  int c = classifications[0][pcount];
-//                  #endif
-                  var b = r.residue_books[c][pass];//int_
-                  if (b >= 0) {
-                     var book = f.codebooks[ + b];//Codebook *
-                     stb_prof(22);
-                     if (!codebook_decode_deinterleave_repeat(f, book, residue_buffers, ch, c_inter, p_inter, n, r.part_size)) {
-                        //goto done;
-                        stb_prof(0);
-                        temp_alloc_restore(f,temp_alloc_point);
-            return;
-           }
-                     stb_prof(3);
-                  } else {
-                     z += r.part_size;
-                     c_inter[0] = 0;
-                     p_inter[0] = z;
-                  }
-               }
-//               #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-               ++class_set;
-//               #endif
-            }
-         } else {
-            while (pcount < part_read) {
-               var z = r.begin + pcount*r.part_size;//int_
-               var c_inter = [z % ch], p_inter = [parseInt(z/ch,10)];//int_
-               if (pass === 0) {
-                  var c = f.codebooks[+r.classbook];//Codebook *
-                  var q=[int_];
-                  DECODE(q,f,c);q=q[0];
-                  if (q === EOP) { //goto done;
-                     stb_prof(0);
-                     temp_alloc_restore(f,temp_alloc_point);
-           return;
-          }
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  part_classdata[0][class_set] = r.classdata[q];
-//                  #else
-//                  for (i=classwords-1; i >= 0; --i) {
-//                     classifications[0][i+pcount] = q % r->classifications;
-//                     q /= r->classifications;
-//                  }
-//                  #endif
-               }
-               for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
-                  var z = r.begin + pcount*r.part_size;//int_
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  var c = part_classdata[0][class_set][i];//int_
-//                  #else
-//                  int c = classifications[0][pcount];
-//                  #endif
-                  var b = r.residue_books[c][pass];//int_
-                  if (b >= 0) {
-                     var book = f.codebooks[ + b];//Codebook *
-                     stb_prof(22);
-                     if (!codebook_decode_deinterleave_repeat(f, book, residue_buffers, ch, c_inter, p_inter, n, r.part_size)) {
-                        //goto done;
-                        stb_prof(0);
-                        temp_alloc_restore(f,temp_alloc_point);
-            return;
-           }
-                     stb_prof(3);
-                  } else {
-                     z += r.part_size;
-                     c_inter[0] = z % ch;
-                     p_inter[0] = parseInt(z / ch,10);
-                  }
-               }
-//               #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-               ++class_set;
-//               #endif
-            }
-         }
-      }
+    if (j === ch) {
       //goto done;
       stb_prof(0);
-      temp_alloc_restore(f,temp_alloc_point);
-    return;
-   }
-   stb_prof(9);
+      f.temp_offset = temp_alloc_point;
+      return;
+    }
 
-   for (pass=0; pass < 8; ++pass) {
-      var pcount = 0, class_set=0;//int_
-      while (pcount < part_read) {
-         if (pass === 0) {
-            for (j=0; j < ch; ++j) {
-               if (!do_not_decode[j]) {
-                  var c = f.codebooks[+r.classbook];//Codebook *
-                  var temp=[int_];
-                  DECODE(temp,f,c);temp=temp[0];
-                  if (temp === EOP) { //goto done;
-                     stb_prof(0);
-                     temp_alloc_restore(f,temp_alloc_point);
-           return;
+    stb_prof(3);
+    for (pass = 0; pass < 8; ++pass) {
+      var pcount = 0, class_set = 0;//int_
+      if (ch === 2) {
+        // console.log('ch2')
+        stb_prof(13);
+        var z, b, c, q, c_inter, book;
+        while (pcount < part_read) {
+          z = r.begin + pcount*r.part_size;//int_
+          c_inter = [(z & 1)], p_inter = [z>>>1];//int_
+          if (pass === 0) {
+            c = f.codebooks[+r.classbook];//Codebook *
+            q = [int_];
+            DECODE(q, f, c);
+            q = q[0];
+            if (q === EOP) {//goto done;
+              stb_prof(0);
+              f.temp_offset = temp_alloc_point;
+              return;
+            }
+//          #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+            part_classdata[0][class_set] = r.classdata[q];
+//          #else
+//          for (i=classwords-1; i >= 0; --i) {
+//            classifications[0][i+pcount] = q % r->classifications;
+//            q /= r->classifications;
+//          }
+//          #endif
           }
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  part_classdata[j][class_set] = r.classdata[temp];
-//                  #else
-//                  for (i=classwords-1; i >= 0; --i) {
-//                     classifications[j][i+pcount] = temp % r->classifications;
-//                     temp /= r->classifications;
-//                  }
-//                  #endif
-               }
+          stb_prof(5);
+          for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
+            z = r.begin + pcount*r.part_size;//int_
+//          #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+            c = part_classdata[0][class_set][i];//int_
+//          #else
+//          int c = classifications[0][pcount];
+//          #endif
+            b = r.residue_books[c][pass];//int_
+            if (b >= 0) {
+              book = f.codebooks[b];//Codebook *
+              stb_prof(20);  // accounts for X time
+//            #ifdef STB_VORBIS_DIVIDES_IN_CODEBOOK
+//            if (!codebook_decode_deinterleave_repeat(f, book, residue_buffers, ch, &c_inter, &p_inter, n, r->part_size))
+//               goto done;
+//            #else
+              // saves 1%
+              if (!codebook_decode_deinterleave_repeat_2(f, book, residue_buffers, c_inter, p_inter, n, r.part_size)) {
+                //goto done;
+                stb_prof(0);
+                f.temp_offset = temp_alloc_point;
+                return;
+              }
+//            #endif
+              stb_prof(7);
+            } else {
+              z += r.part_size;
+              c_inter[0] = z & 1;
+              p_inter[0] = z >>> 1;
             }
-         }
-         for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
-            for (j=0; j < ch; ++j) {
-               if (!do_not_decode[j]) {
-//                  #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-                  var c = part_classdata[j][class_set][i];//int_
-//                  #else
-//                  int c = classifications[j][pcount];
-//                  #endif
-                  var b = r.residue_books[c][pass];//int_
-                  if (b >= 0) {
-                     var target = residue_buffers[j];//float_ *
-                     var offset = r.begin + pcount * r.part_size;//int_
-                     var n = r.part_size;//int_
-                     var book = f.codebooks[ + b];//Codebook *
-                     if (!residue_decode(f, book, target, offset, n, rtype)) {
-                        //goto done;
-                        stb_prof(0);
-                        temp_alloc_restore(f,temp_alloc_point);
-            return;
-           }
-                  }
-               }
+          }
+          stb_prof(8);
+//        #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+          ++class_set;
+//        #endif
+        }
+      } /* else if (ch === 1) {
+        console.log('ch1')
+        while (pcount < part_read) {
+          var z = r.begin + pcount*r.part_size;//int_
+          var c_inter = [0], p_inter = [z];//int_
+          if (pass === 0) {
+            var c = f.codebooks[r.classbook];//Codebook *
+            var q = [int_];
+            DECODE(q, f, c);
+            q = q[0];
+            if (q === EOP) { //goto done;
+              stb_prof(0);
+              f.temp_offset = temp_alloc_point;
+              return;
             }
-         }
-//         #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
-         ++class_set;
-//         #endif
+//          #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+            part_classdata[0][class_set] = r.classdata[q];
+//          #else
+//          for (i=classwords-1; i >= 0; --i) {
+//            classifications[0][i+pcount] = q % r->classifications;
+//            q /= r->classifications;
+//          }
+//          #endif
+          }
+          for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
+            var z = r.begin + pcount*r.part_size;//int_
+//          #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+            var c = part_classdata[0][class_set][i];//int_
+//          #else
+//          int c = classifications[0][pcount];
+//          #endif
+            var b = r.residue_books[c][pass];//int_
+            if (b >= 0) {
+              var book = f.codebooks[b];//Codebook *
+              stb_prof(22);
+              if (!codebook_decode_deinterleave_repeat(f, book, residue_buffers, ch, c_inter, p_inter, n, r.part_size)) {
+                //goto done;
+                stb_prof(0);
+                f.temp_offset = temp_alloc_point;
+                return;
+              }
+              stb_prof(3);
+            } else {
+              z += r.part_size;
+              c_inter[0] = 0;
+              p_inter[0] = z;
+            }
+          }
+//        #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+          ++class_set;
+//        #endif
+        }
+      } */ else {
+        while (pcount < part_read) {
+          var z = r.begin + pcount*r.part_size;//int_
+          var c_inter = [z % ch], p_inter = [parseInt(z/ch,10)];//int_
+          if (pass === 0) {
+            var c = f.codebooks[+r.classbook];//Codebook *
+            var q=[int_];
+            DECODE(q,f,c);q=q[0];
+            if (q === EOP) { //goto done;
+              stb_prof(0);
+              f.temp_offset = temp_alloc_point;
+              return;
+            }
+//          #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+            part_classdata[0][class_set] = r.classdata[q];
+//          #else
+//          for (i=classwords-1; i >= 0; --i) {
+//            classifications[0][i+pcount] = q % r->classifications;
+//            q /= r->classifications;
+//          }
+//          #endif
+          }
+          for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
+            var z = r.begin + pcount*r.part_size;//int_
+//          #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+            var c = part_classdata[0][class_set][i];//int_
+//          #else
+//          int c = classifications[0][pcount];
+//          #endif
+            var b = r.residue_books[c][pass];//int_
+            if (b >= 0) {
+              var book = f.codebooks[b];//Codebook *
+              stb_prof(22);
+              if (!codebook_decode_deinterleave_repeat(f, book, residue_buffers, ch, c_inter, p_inter, n, r.part_size)) {
+                //goto done;
+                stb_prof(0);
+                f.temp_offset = temp_alloc_point;
+                return;
+              }
+              stb_prof(3);
+            } else {
+              z += r.part_size;
+              c_inter[0] = z % ch;
+              p_inter[0] = parseInt(z / ch,10);
+            }
+          }
+//        #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+          ++class_set;
+//        #endif
+        }
       }
-   }
-//  done:
-   stb_prof(0);
-   temp_alloc_restore(f,temp_alloc_point);
-}
+    }
+    //goto done;
+    stb_prof(0);
+    f.temp_offset = temp_alloc_point;
+    return;
+  }
+  stb_prof(9);
 
+  // console.log('here')
+  var t1 = performance.now();
+  var b, c, n, target, offset, temp;
+  for (pass=0; pass < 8; ++pass) {
+    var pcount = 0, class_set = 0;//int_
+    while (pcount < part_read) {
+      if (pass === 0) {
+        temp = [0], c;
+        for (j=0; j < ch; ++j) {
+          if (do_not_decode[j] === false) {
+            c = f.codebooks[r.classbook];//Codebook *
+            DECODE(temp, f, c);
+            temp = temp[0];
+            if (temp === EOP) { //goto done;
+              stb_prof(0);
+              f.temp_offset = temp_alloc_point;
+              return;
+            }
+            part_classdata[j][class_set] = r.classdata[temp];
+          }
+        }
+      }
+
+      for (i=0; i < classwords && pcount < part_read; ++i, ++pcount) {
+        for (j=0; j < ch; ++j) {
+          if (do_not_decode[j] === false) {
+            c = part_classdata[j][class_set][i];//int_
+            b = r.residue_books[c][pass];//int_
+            if (b >= 0) {
+              target = residue_buffers[j];//float_ *
+              offset = r.begin + pcount * r.part_size;//int_
+              n = r.part_size;//int_
+              book = f.codebooks[b];//Codebook *
+              if (!residue_decode(f, book, target, offset, n, rtype)) {
+                //goto done;
+                stb_prof(0);
+                f.temp_offset = temp_alloc_point;
+                return;
+              }
+            }
+          }
+        }
+      }
+
+//    #ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
+      ++class_set;
+//    #endif
+    }
+  }
+  var dt = performance.now()-t1;
+  sum2 += dt;
+
+//done:
+  stb_prof(0);
+  f.temp_offset = temp_alloc_point;
+}
+var sum2 = 0;
 
 // the following were split out into separate functions while optimizing;
 // they could be pushed back up but eh. __forceinline showed no change;
@@ -2130,8 +2136,8 @@ function imdct_step3_inner_s_loop_ld654(n, e, i_off, A, base_n)
    var z = e; var z_off = + i_off;//float_ *
    var base = z; var base_off = z_off - 16 * n;//float_ *
 
+   var k00, k11;
    while (z_off > base_off) {
-      var k00=float_,k11=float_;
 
       k00   = z[z_off -0] - z[z_off -8];
       k11   = z[z_off -1] - z[z_off -9];
@@ -2167,17 +2173,19 @@ function imdct_step3_inner_s_loop_ld654(n, e, i_off, A, base_n)
    }
 }
 
+var inverse_mdct_buf = new Float32Array(1024);
 //2650
 function inverse_mdct(buffer, n, f, blocktype)
 {
-   var n2 = n >>> 1, n4 = n >>> 2, n8 = n >>> 3, l=int_;//int_
-   var n3_4 = n - n4, ld=int_;//int_
+  var t1 = performance.now();
+   var n2 = n >>> 1, n4 = n >>> 2, n8 = n >>> 3, l;//int_
+   var n3_4 = n - n4, ld;//int_
    // @OPTIMIZE: reduce register pressure by using fewer variables?
-   var save_point = temp_alloc_save(f);//int_
-   var buf2 = new Float32Array(n2);//(float *) temp_alloc(f, n2 * sizeof(*buf2));
+   var save_point = f.temp_offset;//int_
+   var buf2 = Array(n2);
+   // var buf2 = inverse_mdct_buf.subarray(0, n2);
+   // var buf2 = new Float32Array(n2);//(float *) temp_alloc(f, n2 * sizeof(*buf2));
    var buf2_off = 0;//float_ *
-   var u = null, v = null;//float_ //*,*
-   var u_off = 0, v_off = 0;//float_ //*,*
    // twiddle factors
    var A = f.A[blocktype];//float_ *
    var A_off = 0;//float_ *
@@ -2201,25 +2209,30 @@ function inverse_mdct(buffer, n, f, blocktype)
    // this propogates through linearly to the end, where the numbers
    // are 1/2 too small, and need to be compensated for.
 
+
    {
-      var d=float_,e=float_, AA=float_, e_stop=float_;//*d,*e, *AA, *e_stop
-      var d_off=0,e_off=0, AA_off=0, e_stop_off=0;//*d,*e, *AA, *e_stop
-      d = buf2;d_off = (n2-2);//&
-      AA = A;AA_off = A_off;
-      e = buffer;e_off=(0);//&
-      e_stop = buffer;e_stop_off = (n2);//&
+      var d = buf2;
+      var d_off = n2-2;
+      var AA = A;
+      var AA_off = A_off;
+      var e = buffer;
+      var e_off = 0;
+      var e_stop = buffer;
+      var e_stop_off = (n2);
+      // console.log(d)
       while (e_off !== e_stop_off) {
-         d[d_off+ 1] = (e[e_off+ 0] * AA[AA_off+ 0] - e[e_off+ 2]*AA[AA_off+ 1]);
-         d[d_off+ 0] = (e[e_off+ 0] * AA[AA_off+ 1] + e[e_off+ 2]*AA[AA_off+ 0]);
+         d[d_off+1] = (e[e_off] * AA[AA_off  ] - e[e_off+2]*AA[AA_off+1]);
+         d[d_off  ] = (e[e_off] * AA[AA_off+1] + e[e_off+2]*AA[AA_off  ]);
          d_off -= 2;
          AA_off += 2;
          e_off += 4;
       }
 
-      e = buffer;e_off=(n2-3);//&
+      e = buffer;
+      e_off = (n2-3);
       while (d_off >= buf2_off) {
-         d[d_off+ 1] = (-e[e_off+ 2] * AA[AA_off+ 0] - -e[e_off+ 0]*AA[AA_off+ 1]);
-         d[d_off+ 0] = (-e[e_off+ 2] * AA[AA_off+ 1] + -e[e_off+ 0]*AA[AA_off+ 0]);
+         d[d_off+1] = (-e[e_off+ 2] * AA[AA_off] - -e[e_off]*AA[AA_off+ 1]);
+         d[d_off] = (-e[e_off+ 2] * AA[AA_off+ 1] + -e[e_off]*AA[AA_off]);
          d_off -= 2;
          AA_off += 2;
          e_off -= 4;
@@ -2230,39 +2243,42 @@ function inverse_mdct(buffer, n, f, blocktype)
    // possibly swap their meaning as we change which operations
    // are in place
 
-   u = buffer;u_off = 0;
-   v = buf2;v_off = buf2_off;
+   var u = buffer;
+   var u_off = 0;
+   var v = buf2;
+   var v_off = buf2_off;
 
    // step 2    (paper output is w, now u)
    // this could be in place, but the data ends up in the wrong
    // place... _somebody_'s got to swap it, so this is nominated
    {
-      var AA = A;var AA_off = (n2-8);//float_ * = &
-      var d0=float_,d1=float_, e0=float_, e1=float_;//*d0,*d1, *e0, *e1
-      var d0_off=0,d1_off=0, e0_off=0, e1_off=0;//*d0,*d1, *e0, *e1
+      var AA = A;
+      var AA_off = n2-8;//float_ * = &
+      var e0 = v;
+      var e0_off = n4;
+      var e1 = v;
+      var e1_off = 0;
 
-      e0 = v;e0_off = (n4);//&
-      e1 = v;e1_off = (0);//&
+      var d0 = u;
+      var d0_off = n4;
+      var d1 = u;
+      var d1_off = 0;
 
-      d0 = u;d0_off = (n4);//&
-      d1 = u;d1_off = (0);//&
-
+      var v41_21, v40_20;
       while (AA_off >= A_off) {
-         var v40_20=float_, v41_21=float_;
+         v41_21 = e0[e0_off+1] - e1[e1_off+1];
+         v40_20 = e0[e0_off] - e1[e1_off];
+         d0[d0_off+1]  = e0[e0_off+1] + e1[e1_off+1];
+         d0[d0_off  ]  = e0[e0_off  ] + e1[e1_off  ];
+         d1[d1_off+1]  = v41_21*AA[AA_off+4] - v40_20*AA[AA_off+5];
+         d1[d1_off  ]  = v40_20*AA[AA_off+4] + v41_21*AA[AA_off+5];
 
-         v41_21 = e0[e0_off+ 1] - e1[e1_off+ 1];
-         v40_20 = e0[e0_off+ 0] - e1[e1_off+ 0];
-         d0[d0_off+ 1]  = e0[e0_off+ 1] + e1[e1_off+ 1];
-         d0[d0_off+ 0]  = e0[e0_off+ 0] + e1[e1_off+ 0];
-         d1[d1_off+ 1]  = v41_21*AA[AA_off+ 4] - v40_20*AA[AA_off+ 5];
-         d1[d1_off+ 0]  = v40_20*AA[AA_off+ 4] + v41_21*AA[AA_off+ 5];
-
-         v41_21 = e0[e0_off+ 3] - e1[e1_off+ 3];
-         v40_20 = e0[e0_off+ 2] - e1[e1_off+ 2];
-         d0[d0_off+ 3]  = e0[e0_off+ 3] + e1[e1_off+ 3];
-         d0[d0_off+ 2]  = e0[e0_off+ 2] + e1[e1_off+ 2];
-         d1[d1_off+ 3]  = v41_21*AA[AA_off+ 0] - v40_20*AA[AA_off+ 1];
-         d1[d1_off+ 2]  = v40_20*AA[AA_off+ 0] + v41_21*AA[AA_off+ 1];
+         v41_21 = e0[e0_off+3] - e1[e1_off+3];
+         v40_20 = e0[e0_off+2] - e1[e1_off+2];
+         d0[d0_off+3]  = e0[e0_off+3] + e1[e1_off+3];
+         d0[d0_off+2]  = e0[e0_off+2] + e1[e1_off+2];
+         d1[d1_off+3]  = v41_21*AA[AA_off] - v40_20*AA[AA_off+1];
+         d1[d1_off+2]  = v40_20*AA[AA_off] + v41_21*AA[AA_off+1];
 
          AA_off -= 8;
 
@@ -2284,32 +2300,34 @@ function inverse_mdct(buffer, n, f, blocktype)
    // switch between them halfway.
 
    // this is iteration 0 of step 3
-   imdct_step3_iter0_loop(n >>> 4, u, n2-1-n4*0, -(n >>> 3), A);
+   imdct_step3_iter0_loop(n >>> 4, u, n2-1,      -(n >>> 3), A);
    imdct_step3_iter0_loop(n >>> 4, u, n2-1-n4*1, -(n >>> 3), A);
 
    // this is iteration 1 of step 3
-   imdct_step3_inner_r_loop(n >>> 5, u, n2-1 - n8*0, -(n >>> 4), A, 16);
+   imdct_step3_inner_r_loop(n >>> 5, u, n2-1       , -(n >>> 4), A, 16);
    imdct_step3_inner_r_loop(n >>> 5, u, n2-1 - n8*1, -(n >>> 4), A, 16);
    imdct_step3_inner_r_loop(n >>> 5, u, n2-1 - n8*2, -(n >>> 4), A, 16);
    imdct_step3_inner_r_loop(n >>> 5, u, n2-1 - n8*3, -(n >>> 4), A, 16);
 
+   var k0, rlim, lim;
    l=2;
    for (; l < (ld-3)>>>1; ++l) {
-      var k0 = n >>> (l+2), k0_2 = k0>>>1;//int_
-      var lim = (1 << (l+1))>>>0;//int_
-      var i=int_;
-      for (i=0; i < lim; ++i)
+      k0 = n >>> (l+2), k0_2 = k0>>>1;//int_
+      lim = (1 << (l+1))>>>0;//int_
+      for (var i=0; i < lim; ++i) {
          imdct_step3_inner_r_loop(n >>> (l+4), u, n2-1 - k0*i, -k0_2, A, (1 << (l+3))>>>0);
+      }
    }
 
+   var A0, A0_off, i_off;
    for (; l < ld-6; ++l) {
-      var k0 = n >>> (l+2), k1 = (1 << (l+3))>>>0, k0_2 = k0>>>1;//int_
-      var rlim = n >>> (l+6), r=int_;//int_
-      var lim = (1 << (l+1))>>>0;//int_
-      var i_off=int_;
-      var A0 = A;var A0_off = A_off;//float_ *
+      k0 = n >>> (l+2), k1 = (1 << (l+3))>>>0, k0_2 = k0>>>1;//int_
+      rlim = n >>> (l+6);//int_
+      lim = (1 << (l+1))>>>0;//int_
+      A0 = A;
+      A0_off = A_off;//float_ *
       i_off = n2-1;
-      for (r=rlim; r > 0; --r) {
+      for (var r = rlim; r > 0; --r) {
          imdct_step3_inner_s_loop(lim, u, i_off, -k0_2, A0, A0_off, k1, k0);
          A0_off += k1*4;
          i_off -= 8;
@@ -2328,28 +2346,30 @@ function inverse_mdct(buffer, n, f, blocktype)
    // step 4, 5, and 6
    // cannot be in-place because of step 5
    {
-      var bitrev = f.bit_reverse[blocktype];var bitrev_off = 0;//uint16 *
+      var bitrev = f.bit_reverse[blocktype];
+      var bitrev_off = 0;//uint16 *
       // weirdly, I'd have thought reading sequentially and writing
       // erratically would have been better than vice-versa, but in
       // fact that's not what my testing showed. (That is, with
       // j = bitreverse(i), do you read i and write j, or read j and write i.)
 
-      var d0 = v;var d0_off = (n4-4);//float_ * = &
-      var d1 = v;var d1_off = (n2-4);//float_ * = &
+      var d0 = v;
+      var d0_off = (n4-4);//float_ * = &
+      var d1 = v;
+      var d1_off = (n2-4);//float_ * = &
+      var k4;
       while (d0_off >= v_off) {
-         var k4=int_;
-
-         k4 = bitrev[bitrev_off+ 0];
-         d1[d1_off+ 3] = u[k4+0];
-         d1[d1_off+ 2] = u[k4+1];
-         d0[d0_off+ 3] = u[k4+2];
-         d0[d0_off+ 2] = u[k4+3];
+         k4 = bitrev[bitrev_off];
+         d1[d1_off+3] = u[k4  ];
+         d1[d1_off+2] = u[k4+1];
+         d0[d0_off+3] = u[k4+2];
+         d0[d0_off+2] = u[k4+3];
 
          k4 = bitrev[bitrev_off+ 1];
-         d1[d1_off+ 1] = u[k4+0];
-         d1[d1_off+ 0] = u[k4+1];
-         d0[d0_off+ 1] = u[k4+2];
-         d0[d0_off+ 0] = u[k4+3];
+         d1[d1_off+1] = u[k4  ];
+         d1[d1_off  ] = u[k4+1];
+         d0[d0_off+1] = u[k4+2];
+         d0[d0_off  ] = u[k4+3];
          
          d0_off -= 4;
          d1_off -= 4;
@@ -2365,43 +2385,44 @@ function inverse_mdct(buffer, n, f, blocktype)
    // step 7   (paper output is v, now v)
    // this is now in place
    {
-      var C = f.C[blocktype];var C_off = 0;//float *
-      var d=float_, e=float_;//*d, *e
-      var d_off=0, e_off=0;//*d, *e
+      var C = f.C[blocktype];
+      var C_off = 0;//float *
 
-      d = v;d_off = v_off;
-      e = v;e_off = v_off + n2 - 4;
+      var d = v;
+      var d_off = v_off;
+      var e = v;
+      var e_off = v_off + n2 - 4;
 
+      var a02, a11, b0, b1, b2, b3;
       while (d_off < e_off) {
-         var a02=float_,a11=float_,b0=float_,b1=float_,b2=float_,b3=float_;
 
-         a02 = d[d_off+ 0] - e[e_off+ 2];
-         a11 = d[d_off+ 1] + e[e_off+ 3];
+         a02 = d[d_off  ] - e[e_off+2];
+         a11 = d[d_off+1] + e[e_off+3];
 
-         b0 = C[C_off+ 1]*a02 + C[C_off+ 0]*a11;
-         b1 = C[C_off+ 1]*a11 - C[C_off+ 0]*a02;
+         b0 = C[C_off+1]*a02 + C[C_off]*a11;
+         b1 = C[C_off+1]*a11 - C[C_off]*a02;
 
-         b2 = d[d_off+ 0] + e[e_off+ 2];
-         b3 = d[d_off+ 1] - e[e_off+ 3];
+         b2 = d[d_off  ] + e[e_off+2];
+         b3 = d[d_off+1] - e[e_off+3];
 
-         d[d_off+ 0] = b2 + b0;
-         d[d_off+ 1] = b3 + b1;
-         e[e_off+ 2] = b2 - b0;
-         e[e_off+ 3] = b1 - b3;
+         d[d_off  ] = b2 + b0;
+         d[d_off+1] = b3 + b1;
+         e[e_off+2] = b2 - b0;
+         e[e_off+3] = b1 - b3;
 
-         a02 = d[d_off+ 2] - e[e_off+ 0];
-         a11 = d[d_off+ 3] + e[e_off+ 1];
+         a02 = d[d_off+2] - e[e_off ];
+         a11 = d[d_off+3] + e[e_off+1];
 
-         b0 = C[C_off+ 3]*a02 + C[C_off+ 2]*a11;
-         b1 = C[C_off+ 3]*a11 - C[C_off+ 2]*a02;
+         b0 = C[C_off+3]*a02 + C[C_off+2]*a11;
+         b1 = C[C_off+3]*a11 - C[C_off+2]*a02;
 
-         b2 = d[d_off+ 2] + e[e_off+  0];
-         b3 = d[d_off+ 3] - e[e_off+  1];
+         b2 = d[d_off+2] + e[e_off ];
+         b3 = d[d_off+3] - e[e_off+1];
 
-         d[d_off+ 2] = b2 + b0;
-         d[d_off+ 3] = b3 + b1;
-         e[e_off+ 0] = b2 - b0;
-         e[e_off+ 1] = b1 - b3;
+         d[d_off+2] = b2 + b0;
+         d[d_off+3] = b3 + b1;
+         e[e_off  ] = b2 - b0;
+         e[e_off+1] = b1 - b3;
 
          C_off += 4;
          d_off += 4;
@@ -2420,49 +2441,51 @@ function inverse_mdct(buffer, n, f, blocktype)
    // this cannot POSSIBLY be in place, so we refer to the buffers directly
 
    {
-      var d0=float_,d1=float_,d2=float_,d3=float_;//*d0,*d1,*d2,*d3
-      var d0_off=0,d1_off=0,d2_off=0,d3_off=0;//*d0,*d1,*d2,*d3
-
-      var B = f.B[blocktype];var B_off =  + n2 - 8;//float *
-      var e = buf2;var e_off = buf2_off + n2 - 8;//float *
-      d0 = buffer;d0_off = (0);//&
-      d1 = buffer;d1_off = (n2-4);//&
-      d2 = buffer;d2_off = (n2);//&
-      d3 = buffer;d3_off = (n-4);//&
+      var B = f.B[blocktype];
+      var B_off =  n2-8;
+      var e = buf2;
+      var e_off = buf2_off + n2 - 8;
+      var d0 = buffer;
+      var d0_off = 0;
+      var d1 = buffer;
+      var d1_off = n2-4;
+      var d2 = buffer;
+      var d2_off = n2;
+      var d3 = buffer;
+      var d3_off = n-4;
+      var p0, p1, p2, p3;
       while (e_off >= v_off) {
-         var p0=float_,p1=float_,p2=float_,p3=float_;
+         p3 =  e[e_off+6]*B[B_off+7] - e[e_off+7]*B[B_off+6];
+         p2 = -e[e_off+6]*B[B_off+6] - e[e_off+7]*B[B_off+7]; 
 
-         p3 =  e[e_off+ 6]*B[B_off+ 7] - e[e_off+ 7]*B[B_off+ 6];
-         p2 = -e[e_off+ 6]*B[B_off+ 6] - e[e_off+ 7]*B[B_off+ 7]; 
+         d0[d0_off  ] =   p3;
+         d1[d1_off+3] = - p3;
+         d2[d2_off  ] =   p2;
+         d3[d3_off+3] =   p2;
 
-         d0[d0_off+ 0] =   p3;
-         d1[d1_off+ 3] = - p3;
-         d2[d2_off+ 0] =   p2;
-         d3[d3_off+ 3] =   p2;
+         p1 =  e[e_off+4]*B[B_off+5] - e[e_off+5]*B[B_off+4];
+         p0 = -e[e_off+4]*B[B_off+4] - e[e_off+5]*B[B_off+5]; 
 
-         p1 =  e[e_off+ 4]*B[B_off+ 5] - e[e_off+ 5]*B[B_off+ 4];
-         p0 = -e[e_off+ 4]*B[B_off+ 4] - e[e_off+ 5]*B[B_off+ 5]; 
+         d0[d0_off+1] =   p1;
+         d1[d1_off+2] = - p1;
+         d2[d2_off+1] =   p0;
+         d3[d3_off+2] =   p0;
 
-         d0[d0_off+ 1] =   p1;
-         d1[d1_off+ 2] = - p1;
-         d2[d2_off+ 1] =   p0;
-         d3[d3_off+ 2] =   p0;
+         p3 =  e[e_off+2]*B[B_off+3] - e[e_off+3]*B[B_off+2];
+         p2 = -e[e_off+2]*B[B_off+2] - e[e_off+3]*B[B_off+3]; 
 
-         p3 =  e[e_off+ 2]*B[B_off+ 3] - e[e_off+ 3]*B[B_off+ 2];
-         p2 = -e[e_off+ 2]*B[B_off+ 2] - e[e_off+ 3]*B[B_off+ 3]; 
+         d0[d0_off+2] =   p3;
+         d1[d1_off+1] = - p3;
+         d2[d2_off+2] =   p2;
+         d3[d3_off+1] =   p2;
 
-         d0[d0_off+ 2] =   p3;
-         d1[d1_off+ 1] = - p3;
-         d2[d2_off+ 2] =   p2;
-         d3[d3_off+ 1] =   p2;
+         p1 =  e[e_off]*B[B_off+1] - e[e_off+1]*B[B_off  ];
+         p0 = -e[e_off]*B[B_off  ] - e[e_off+1]*B[B_off+1]; 
 
-         p1 =  e[e_off+ 0]*B[B_off+ 1] - e[e_off+ 1]*B[B_off+ 0];
-         p0 = -e[e_off+ 0]*B[B_off+ 0] - e[e_off+ 1]*B[B_off+ 1]; 
-
-         d0[d0_off+ 3] =   p1;
-         d1[d1_off+ 0] = - p1;
-         d2[d2_off+ 3] =   p0;
-         d3[d3_off+ 0] =   p0;
+         d0[d0_off+3] =   p1;
+         d1[d1_off  ] = - p1;
+         d2[d2_off+3] =   p0;
+         d3[d3_off  ] =   p0;
 
          B_off -= 8;
          e_off -= 8;
@@ -2473,30 +2496,36 @@ function inverse_mdct(buffer, n, f, blocktype)
       }
    }
 
-   temp_alloc_restore(f,save_point);
+   f.temp_offset = save_point;
+   var dt = performance.now()-t1;
+   sum += dt;
+   // console.log(dt);
 }
+var sum = 0;
 
 //3079
 function get_window(f, len) {
-  len <<= 1;
-  if (len == f.blocksize_0) return f.window_[0];
-  if (len == f.blocksize_1) return f.window_[1];
+  return f.window_[len*2 === f.blocksize_0? 0 : 1];
+  // len <<= 1;
+  // if (len === f.blocksize_0) return f.window_[0];
+  // if (len === f.blocksize_1) return f.window_[1];
   // assert(0);
-  return null;
+  // return null;
 }
 
 //3093
 function do_floor(f, map, i, n, target, finalY, step2_flag) {
-  var n2 = n >>> 1;//int_
-  var s = map.chan[i].mux, floor1=int_;//int_
-  floor1 = map.submap_floor[s];
+  var n2 = n >>> 1;
+  var s = map.chan[i].mux;
+  var floor1 = map.submap_floor[s];
   if (f.floor_types[floor1] === 0) {
     return error(f, VORBIS_invalid_stream);
   } else {
     var g = f.floor_config[floor1].floor1;//Floor1 * = &
-    var j=int_,q=int_;
     var lx = 0, ly = finalY[0] * g.floor1_multiplier;//int_
-    for (q=1; q < g.values; ++q) {
+    var j, q, hy, hx;
+    var len = g.values;
+    for (q = 1; q < len; ++q) {
       j = g.sorted_order[q];
 //    #ifndef STB_VORBIS_NO_DEFER_FLOOR
       if (finalY[j] >= 0)
@@ -2504,8 +2533,8 @@ function do_floor(f, map, i, n, target, finalY, step2_flag) {
 //    if (step2_flag[j])
 //       #endif
       {
-        var hy = finalY[j] * g.floor1_multiplier;//int_
-        var hx = g.Xlist[j];//int_
+        hy = finalY[j] * g.floor1_multiplier;//int_
+        hx = g.Xlist[j];//int_
         draw_line(target, lx,ly, hx,hy, n2);
         lx = hx, ly = hy;
       }
@@ -2534,7 +2563,7 @@ function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_rig
       return false;
     // check packet type
     if (get_bits(f, 1) !== 0) {
-      if (IS_PUSH_MODE(f)) {
+      if (f.push_mode) {
         return error(f,VORBIS_bad_packet_type);
       }
       while (EOP !== get8_packet(f));
@@ -2582,23 +2611,27 @@ function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_rig
 
 // var RANGE_LIST = Int32Array.of(256, 128, 86, 64);//static int_
 var RANGE_LIST = [256, 128, 86, 64];//static int_
+var zero_channel = Array(256);//int_
+var really_zero_channel = Array(256);
+var step2_flag = Array(256);//uint8
+var do_not_decode = Array(256);//uint8
 //3181
 function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start, right_end, p_left) {
-  var map = new Mapping();//*
-  var i = int_, j = int_, k = int_, n = int_, n2 = int_;
-  var zero_channel = new Int32Array(256);//int_
-  var really_zero_channel = new Int32Array(256);//int_
-  var window_center = int_;
+  var i = int_, j = int_, k = int_;
+  // var zero_channel = new Int32Array(256);//int_
+  // var really_zero_channel = new Int32Array(256);//int_
+  // var zero_channel = Array(256);//int_
+  // var really_zero_channel = Array(256);
 
 // WINDOWING
 
-  n = f.blocksize[m.blockflag];
-  window_center = n >>> 1;
+  var n = f.blocksize[m.blockflag];//int_
+  var window_center = n >>> 1;//int_
 
-  map = f.mapping[m.mapping];//&
+  var map = f.mapping[m.mapping];//&
 
 // FLOORS
-  n2 = n >>> 1;
+  var n2 = n >>> 1;
 
   stb_prof(1);
   goto_channels:for (i = 0; i < f.channels; ++i) {
@@ -2611,7 +2644,8 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
       var g = f.floor_config[floor1].floor1;//Floor1 * = &
       if (get_bits(f, 1)) {
         var finalY = short_;//*
-        var step2_flag = new Uint8Array(256);//uint8
+        // var step2_flag = new Uint8Array(256);//uint8
+        // var step2_flag = Array(256);//uint8
         var range = RANGE_LIST[g.floor1_multiplier-1];//int_
         var offset = 2;//int_
         finalY = f.finalY[i];
@@ -2624,8 +2658,9 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
           var csub = ((1 << cbits)>>>0)-1;//int_
           var cval = [0];//int_
           if (cbits) {
-            var c = f.codebooks[ + g.class_masterbooks[pclass]];//Codebook *
-            DECODE(cval,f,c);cval=cval[0];
+            var c = f.codebooks[g.class_masterbooks[pclass]];//Codebook *
+            DECODE(cval,f,c);
+            cval=cval[0];
           }
           for (k = 0; k < cdim; ++k) {
             var book = g.subclass_books[pclass][cval & csub];//int_
@@ -2697,8 +2732,8 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
   // }
 
   // re-enable coupled channels if necessary
-  // memcpy(really_zero_channel, 0, zero_channel, 0, f.channels);//sizeof(really_zero_channel[0]) * 
-  really_zero_channel.set(zero_channel, 0, f.channels);
+  memcpy(really_zero_channel, 0, zero_channel, 0, f.channels);//sizeof(really_zero_channel[0]) * 
+  // really_zero_channel.set(zero_channel, 0, f.channels);
   for (i = 0; i < map.coupling_steps; ++i) {
     if (!zero_channel[map.chan[i].magnitude] || !zero_channel[map.chan[i].angle]) {
       zero_channel[map.chan[i].magnitude] = zero_channel[map.chan[i].angle] = false;
@@ -2709,7 +2744,8 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
   for (i = 0; i < map.submaps; ++i) {
     var residue_buffers = Array(STB_VORBIS_MAX_CHANNELS);//float *
     var r = int_, t = int_;
-    var do_not_decode = new Uint8Array(256);//uint8
+    // var do_not_decode = new Uint8Array(256);//uint8
+    // var do_not_decode = Array(256);//uint8
     var ch = 0;//int_
     for (j = 0; j < f.channels; ++j) {
       if (map.chan[j].mux === i) {
@@ -3025,10 +3061,10 @@ function start_decoder(f) {
   }
 
   //#ifndef STB_VORBIS_NO_PUSHDATA_API
-  if (IS_PUSH_MODE(f)) {
+  if (f.push_mode) {
     if (!is_whole_packet_present(f, TRUE)) {
       // convert error in ogg header to write type
-      if (f.error == VORBIS_invalid_stream) {
+      if (f.error === VORBIS_invalid_stream) {
         f.error = VORBIS_invalid_setup;
       }
       return false;
@@ -3038,7 +3074,7 @@ function start_decoder(f) {
 
   crc32_init(); // always init it, to avoid multithread race conditions
 
-  if (get8_packet(f) != VORBIS_packet_setup) {
+  if (get8_packet(f) !== VORBIS_packet_setup) {
     return error(f, VORBIS_invalid_setup);
   }
   for (i = 0; i < 6; ++i) {
@@ -3059,7 +3095,7 @@ function start_decoder(f) {
     var ordered = int_, sorted_count = int_;
     var total = 0;//int_
     var lengths = uint8;//*
-    var c = f.codebooks[+i];//Codebook *
+    var c = f.codebooks[i];//Codebook *
 
     // A codebook begins with a 24 bit sync pattern, 0x564342
     if (get_bits(f, 8) !== 0x42 || get_bits(f, 8) !== 0x43 || get_bits(f, 8) !== 0x56) {
@@ -3075,9 +3111,11 @@ function start_decoder(f) {
     c.sparse = ordered ? 0 : get_bits(f,1);
 
     if (c.sparse) {
-      lengths = new Uint8Array(c.entries);//(uint8 *) setup_temp_malloc(f, c->entries);
+      // lengths = new Uint8Array(c.entries);//(uint8 *) setup_temp_malloc(f, c->entries);
+      lengths = Array(c.entries);
     } else {
-      lengths = c.codeword_lengths = new Uint8Array(c.entries);//(uint8 *) setup_malloc(f, c->entries);
+      // lengths = c.codeword_lengths = new Uint8Array(c.entries);//(uint8 *) setup_malloc(f, c->entries);
+      lengths = c.codeword_lengths = Array(c.entries);
     }
 
     if (ordered) {
@@ -3129,7 +3167,7 @@ function start_decoder(f) {
       sorted_count = 0;
       //#ifndef STB_VORBIS_NO_HUFFMAN_BINARY_SEARCH
       for (j=0; j < c.entries; ++j) {
-        if (lengths[j] > STB_VORBIS_FAST_HUFFMAN_LENGTH && lengths[j] != NO_CODE) {
+        if (lengths[j] > STB_VORBIS_FAST_HUFFMAN_LENGTH && lengths[j] !== NO_CODE) {
           ++sorted_count;
         }
       }
@@ -3163,10 +3201,14 @@ function start_decoder(f) {
 
     if (c.sorted_entries) {
       // allocate an extra slot for sentinels
-      c.sorted_codewords = Array(c.sorted_entries+1);//(uint32 *) setup_malloc(f, sizeof(*c->sorted_codewords) * (c->sorted_entries+1));
+      // c.sorted_codewords = Array(c.sorted_entries+1);
+      c.sorted_codewords = new Uint32Array(c.sorted_entries+1);//(uint32 *) setup_malloc(f, sizeof(*c->sorted_codewords) * (c->sorted_entries+1));
+      c.sorted_codewords[c.sorted_entries] = -1; // required to use Uint32Array
+      // 0xffffffff
+
       // allocate an extra slot at the front so that c->sorted_values[-1] is defined
       // so that we can catch that case without an extra if
-      c.sorted_values = Array(c.sorted_entries+1);//( int   *) setup_malloc(f, sizeof(*c->sorted_values   ) * (c->sorted_entries+1));
+      c.sorted_values = new Uint32Array(c.sorted_entries+1);//( int   *) setup_malloc(f, sizeof(*c->sorted_values   ) * (c->sorted_entries+1));
       if (c.sorted_values) {
         ++c.sorted_values_off;
         c.sorted_values[c.sorted_values_off -1] = -1;
@@ -3188,7 +3230,6 @@ function start_decoder(f) {
       return error(f, VORBIS_invalid_setup);
     }
     if (c.lookup_type > 0) {
-      var mults=uint16;//*
       c.minimum_value = float32_unpack(get_bits(f, 32));
       c.delta_value = float32_unpack(get_bits(f, 32));
       c.value_bits = get_bits(f, 4)+1;
@@ -3198,22 +3239,22 @@ function start_decoder(f) {
       } else {
         c.lookup_values = c.entries * c.dimensions;
       }
-      mults = new Uint16Array(c.lookup_values);//(uint16 *) setup_temp_malloc(f, sizeof(mults[0]) * c->lookup_values);
+      var mults = new Uint16Array(c.lookup_values);//(uint16 *) setup_temp_malloc(f, sizeof(mults[0]) * c->lookup_values);
       for (j = 0; j < c.lookup_values; ++j) {
         var q = get_bits(f, c.value_bits);//int_
-        if (q == EOP) { /*setup_temp_free(f,mults,sizeof(mults[0])*c->lookup_values);*/
+        if (q === EOP) { /*setup_temp_free(f,mults,sizeof(mults[0])*c->lookup_values);*/
           return error(f, VORBIS_invalid_setup);
         }
         mults[j] = q;
       }
 
 //#ifndef STB_VORBIS_DIVIDES_IN_CODEBOOK
-      if (c.lookup_type == 1) {
+      if (c.lookup_type === 1) {
         var len = int_, sparse = c.sparse;//int_
         var goto_skip = false;
         // pre-expand the lookup1-style multiplicands, to avoid a divide in the inner loop
         if (sparse) {
-          if (c.sorted_entries == 0) {
+          if (c.sorted_entries === 0) {
             goto_skip = true;
           } else {
             c.multiplicands = new Float32Array(c.sorted_entries * c.dimensions);//(codetype *) setup_malloc(f, sizeof(c->multiplicands[0]) * c->sorted_entries * c->dimensions);
@@ -3270,7 +3311,6 @@ function start_decoder(f) {
   }
 
   // time domain transfers (notused)
-
   x = get_bits(f, 6) + 1;
   for (i = 0; i < x; ++i) {
     var z = get_bits(f, 16);//uint32
@@ -3281,11 +3321,11 @@ function start_decoder(f) {
 
    // Floors
    f.floor_count = get_bits(f, 6)+1;
-   f.floor_config = Arr_new(f.floor_count,Floor);//(Floor *)  setup_malloc(f, f->floor_count * sizeof(*f->floor_config));
-   for (i=0; i < f.floor_count; ++i) {
+   f.floor_config = Arr_new(f.floor_count, Floor);//(Floor *)  setup_malloc(f, f->floor_count * sizeof(*f->floor_config));
+   for (i = 0; i < f.floor_count; ++i) {
       f.floor_types[i] = get_bits(f, 16);
       if (f.floor_types[i] > 1) return error(f, VORBIS_invalid_setup);
-      if (f.floor_types[i] == 0) {
+      if (f.floor_types[i] === 0) {
          var g = f.floor_config[i].floor0;//Floor0 * = &
          g.order = get_bits(f,8);
          g.rate = get_bits(f,16);
@@ -3293,25 +3333,34 @@ function start_decoder(f) {
          g.amplitude_bits = get_bits(f,6);
          g.amplitude_offset = get_bits(f,8);
          g.number_of_books = get_bits(f,4) + 1;
-         for (j=0; j < g.number_of_books; ++j)
+         for (j=0; j < g.number_of_books; ++j) {
             g.book_list[j] = get_bits(f,8);
+         }
          return error(f, VORBIS_feature_not_supported);
       } else {
-         var p=Arr_new(31*8+2,Point);
+         // var p = Arr_new(250, Point); //250 = 31*8+2
+         var p = Array(250);
+         var it = 250;
+         while (it--) {
+           p[it] = [52428, 52428];
+         }
          var g = f.floor_config[i].floor1;//Floor1 * = &
          var max_class = -1; //int_
          g.partitions = get_bits(f, 5);
          for (j=0; j < g.partitions; ++j) {
             g.partition_class_list[j] = get_bits(f, 4);
-            if (g.partition_class_list[j] > max_class)
+            if (g.partition_class_list[j] > max_class) {
                max_class = g.partition_class_list[j];
+            }
          }
          for (j=0; j <= max_class; ++j) {
             g.class_dimensions[j] = get_bits(f, 3)+1;
             g.class_subclasses[j] = get_bits(f, 2);
             if (g.class_subclasses[j]) {
                g.class_masterbooks[j] = get_bits(f, 8);
-               if (g.class_masterbooks[j] >= f.codebook_count) return error(f, VORBIS_invalid_setup);
+               if (g.class_masterbooks[j] >= f.codebook_count) {
+                return error(f, VORBIS_invalid_setup);
+              }
             }
             for (k=0; k < (1 << g.class_subclasses[j])>>>0; ++k) {
                g.subclass_books[j][k] = get_bits(f,8)-1;
@@ -3332,12 +3381,13 @@ function start_decoder(f) {
          }
          // precompute the sorting
          for (j=0; j < g.values; ++j) {
-            p[j].x = g.Xlist[j];
-            p[j].y = j;
+            p[j][0] = g.Xlist[j];
+            p[j][1] = j;
          }
-         p.sort(point_compare);//qsort(p, g->values, sizeof(p[0]), point_compare);
-         for (j=0; j < g.values; ++j)
-            g.sorted_order[j] = p[j].y;//(uint8) 
+         p.sort(point_compare);
+         for (j=0; j < g.values; ++j) {
+            g.sorted_order[j] = p[j][1];
+         }
          // precompute the neighbors
          for (j=2; j < g.values; ++j) {
             var low=[int_],hi=[int_];
@@ -3346,8 +3396,9 @@ function start_decoder(f) {
             g.neighbors[j][1] = hi[0];
          }
 
-         if (g.values > longest_floorlist)
+         if (g.values > longest_floorlist) {
             longest_floorlist = g.values;
+         }
       }
    }
 
@@ -3404,16 +3455,16 @@ function start_decoder(f) {
    }
 
    f.mapping_count = get_bits(f,6)+1;
-   f.mapping = Arr_new(f.mapping_count,Mapping);//(Mapping *) setup_malloc(f, f->mapping_count * sizeof(*f->mapping));
+   f.mapping = Arr_new(f.mapping_count, Mapping);//(Mapping *) setup_malloc(f, f->mapping_count * sizeof(*f->mapping));
    for (i=0; i < f.mapping_count; ++i) {
-      var m = f.mapping[ + i]; //Mapping *     
+      var m = f.mapping[i]; //Mapping *     
       var mapping_type = get_bits(f,16);//int_
-      if (mapping_type != 0) return error(f, VORBIS_invalid_setup);
+      if (mapping_type != 0) {
+        return error(f, VORBIS_invalid_setup);
+      }
       m.chan = Arr_new(f.channels,MappingChannel);//(MappingChannel *) setup_malloc(f, f->channels * sizeof(*m->chan));
-      if (get_bits(f,1))
-         m.submaps = get_bits(f,4);
-      else
-         m.submaps = 1;
+
+      m.submaps = get_bits(f,1)? get_bits(f,4) : 1;
       if (m.submaps > max_submaps)
          max_submaps = m.submaps;
       if (get_bits(f,1)) {
@@ -3457,9 +3508,9 @@ function start_decoder(f) {
       m.windowtype = get_bits(f,16);
       m.transformtype = get_bits(f,16);
       m.mapping = get_bits(f,8);
-      if (m.windowtype != 0)                 return error(f, VORBIS_invalid_setup);
-      if (m.transformtype != 0)              return error(f, VORBIS_invalid_setup);
-      if (m.mapping >= f.mapping_count)     return error(f, VORBIS_invalid_setup);
+      if (m.windowtype !== 0 || m.transformtype !== 0 || m.mapping >= f.mapping_count) {
+        return error(f, VORBIS_invalid_setup);
+      }
    }
 
    flush_packet(f);
@@ -3522,7 +3573,6 @@ function start_decoder(f) {
    }
 
    f.first_audio_page_offset = stb_vorbis_get_file_offset(f);
-
    return true;
 }
 
@@ -3569,7 +3619,6 @@ function stb_vorbis_get_file_offset(f) {
 
 //4959
 function stb_vorbis_open_file_section(file, close_on_free, error, alloc, length) {
-  var f = new stb_vorbis();
   var p = new stb_vorbis();
   vorbis_init(p, alloc);
   p.f = file;
@@ -3577,7 +3626,7 @@ function stb_vorbis_open_file_section(file, close_on_free, error, alloc, length)
   p.stream_len   = length;
   p.close_on_free = close_on_free;
   if (start_decoder(p)) {
-    f = vorbis_alloc(p);
+    var f = vorbis_alloc(p);
     if (f) {
       f = p;//* = 
       vorbis_pump_first_frame(f);
@@ -3616,34 +3665,26 @@ function stb_vorbis_open_filename(filename, error, alloc) {
 //4935
 function stb_vorbis_get_frame_float(f, channels, buffer) {
   var len = [int_], right = [int_], left = [int_];
-  if (IS_PUSH_MODE(f)) return error(f, VORBIS_invalid_api_mixing);
+  if (f.push_mode) return error(f, VORBIS_invalid_api_mixing);
 
   if (!vorbis_decode_packet(f, len, left, right)) {//,&,&,&
     f.channel_buffer_start = f.channel_buffer_end = 0;
     return 0;
   }
-
   len = vorbis_finish_frame(f, len[0], left[0], right[0]);
   for (var i = 0; i < f.channels; ++i) {
     buffer[i].push(f.channel_buffers[i].slice(left[0], left[0]+len));
   }
 
-  f.channel_buffer_start = left;
-  f.channel_buffer_end   = left+len;
+  f.channel_buffer_start = left[0];
+  f.channel_buffer_end   = left[0]+len;
 
-  if (channels) {
-    channels[0] = f.channels;//*
-  }
-  // if (output) {
-  //   output[0] = f.outputs;//*
-  // }
   return len;
 }
 
 function stb_vorbis_get_frame(f, num_c, buffer, buffer_off, num_samples) {
   var len = stb_vorbis_get_frame_float(f, null, buffer);
   if (len*num_c > num_samples) {
-    console.log('BAD BAD CODE')
     len = parseInt(num_samples / num_c, 10);
   }
   return len;
@@ -3663,9 +3704,11 @@ function stb_vorbis_decode_filename(filename) {
   total = limit;
   var data = Arr_new(v.channels, Array);
 
-  for (;;) {
-    var n = stb_vorbis_get_frame(v, v.channels, data,+offset, total-offset);
-    if (n == 0) break;
+  while (true) {
+    // console.log('stb_vorbis_get_frame')
+    // if (offset > 200000) break;
+    var n = stb_vorbis_get_frame(v, v.channels, data, offset, total-offset);
+    if (n === 0) break;
 
     data_len += n;
     offset += n * v.channels*2;
@@ -3677,6 +3720,11 @@ function stb_vorbis_decode_filename(filename) {
   }
 
   v.data = data;
+  // console.log('Inverse ... '+sum);
+  // console.log('Decode ... '+sum2);
+  sum = 0;
+  sum2 = 0;
+  
   // console.log('size: '+v.samples_output);
   return v;
 }
