@@ -20,7 +20,7 @@ var player_type_embed;
 var player_type;
 // JavaScript Document
 
-var _iobuf = function() {
+var FILE = function() {
   this._ptr = char_;//*
   this._ptr_off = 0;//*
   this._cnt = int_;
@@ -33,7 +33,6 @@ var _iobuf = function() {
   this._tmpfname = char_;//*
   this._tmpfname_off = 0;//*
 };
-var FILE = _iobuf;
 
 var EOF = (-1);
 
@@ -83,11 +82,6 @@ function fseek ( stream, offset, origin ) {
   }
 }
 
-//ftell
-//long int ftell ( FILE * stream );
-function ftell (stream) {
-  return stream._ptr_off;
-}
 
 //int memcmp ( const void * ptr1, const void * ptr2, size_t num );
 function memcmp ( ptr1, ptr2, num ) {
@@ -99,7 +93,7 @@ function memcmp ( ptr1, ptr2, num ) {
   return 0;
 }
 
-var char_=0, short_=0, int_=0, long_=0, void_=0;
+var char_=0, short_=0, int_=0, long_=0;
 
 var int8 = char_;
 var uint8 = char_;
@@ -536,8 +530,7 @@ var CRC32_POLY    = 0x04c11db7;   // from spec
 var crc_table = new Uint32Array(256);//static uint32
 //911
 function crc32_init() {
-  var i=int_,j=int_;
-  var s=uint32;
+  var i, j, s;
   for(i=0; i < 256; i++) {
     for (s=(i<<24)>>>0, j=0; j < 8; ++j) {
       s = ((s << 1) ^ (s >= ((1<<31)>>>0) ? CRC32_POLY : 0))>>>0;
@@ -561,19 +554,30 @@ function bit_reverse(n) {
 // @OPTIMIZE: called multiple times per-packet with "constants"; move to setup
 //946
 
-var log2_4 = Int32Array.of( 0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4 );//static signed char_
+var log2_4 = Int32Array.of(0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4);//static signed char_
+
 function ilog(n) {
-   // 2 compares if n < 16, 3 compares otherwise (4 if signed or n > 1<<29)
-   if (n < (1 << 14))//U
-        if (n < (1 <<  4))        return     0 + log2_4[n      ];//U
-        else if (n < (1 <<  9))      return  5 + log2_4[n >>>  5];//U
-             else                     return 10 + log2_4[n >>> 10];
-   else if (n < (1 << 24))//U
-             if (n < (1 << 19))      return 15 + log2_4[n >>> 15];//U
-             else                     return 20 + log2_4[n >>> 20];
-        else if (n < (1 << 29))      return 25 + log2_4[n >>> 25];//U
-             else if (n < (1 << 31)>>>0) return 30 + log2_4[n >>> 30];//U
-                  else                return 0; // signed n returns 0
+  // 2 compares if n < 16, 3 compares otherwise (4 if signed or n > 1<<29)
+  if (n < 16384) { // (1 << 14)
+    if (n < 16) {  // (1 <<  4)
+      return log2_4[n];
+    } else if (n < 512) { // (1 <<  9)
+      return 5 + log2_4[n >>>  5];
+    }
+    return 10 + log2_4[n >>> 10];
+  }
+  if (n < 16777216) { // (1 << 24)
+    if (n < 524288) { // (1 << 19)
+      return 15 + log2_4[n >>> 15];
+    }
+    return 20 + log2_4[n >>> 20];
+  }
+  if (n < 536870912) { // (1 << 29)
+    return 25 + log2_4[n >>> 25];
+  } else if (n < (1 << 31)>>>0) {
+    return 30 + log2_4[n >>> 30];
+  }
+  return 0; // signed n returns 0
 }
 
 //#ifndef M_PI
@@ -596,9 +600,9 @@ function float32_unpack(x)
    // from the specification
    var mantissa = (x & 0x1fffff)>>>0;//uint32
    var sign = (x & 0x80000000)>>>0;//uint32
-   var exp_ = (x & 0x7fe00000) >>> 21;//uint32
+   var exp = (x & 0x7fe00000) >>> 21;//uint32
    var res = sign ? -mantissa : mantissa;//double (double):(double)
-   return res*Math.pow(2,exp_-788);//(float) ldexp((float), )
+   return res*Math.pow(2, exp-788);//(float) ldexp((float), )
 }
 
 
@@ -932,10 +936,8 @@ function skip(z, n) {
     }
     return;
   }
-  //#ifndef STB_VORBIS_NO_STDIO
-  var x = ftell(z.f);//long
+  var x = z.f._ptr_off;//long
   fseek(z.f, x+n, SEEK_SET);
-  //#endif
 }
 
 var PAGEFLAG_continued_packet   = 1;
@@ -970,7 +972,7 @@ function start_page_no_capturepattern(f) {
   }
   // assume we _don't_ know any the sample position of any segments
   f.end_seg_with_known_loc = -2;
-  if (loc0 != ~0 || loc1 != ~0) {
+  if (loc0 !== ~0 || loc1 !== ~0) {
     // determine which packet is the last one that will complete
     for (i = f.segment_count-1; i >= 0; --i) {
       if (f.segments[i] < 255) {
@@ -984,10 +986,9 @@ function start_page_no_capturepattern(f) {
     }
   }
   if (f.first_decode) {
-    var i = int_, len = int_;
     var p = new ProbedPage();
-    len = 0;
-    for (i = 0; i < f.segment_count; ++i) {
+    var len = 0;
+    for (var i = 0; i < f.segment_count; ++i) {
       len += f.segments[i];
     }
     len += 27 + f.segment_count;
@@ -1591,7 +1592,6 @@ function draw_line(output, x, y, x1, y1, n)
 //2060
 function residue_decode(f, book, target, offset, n, rtype) {
   var k = 0;
-
   if (rtype === 0) {
     var step = parseInt(n / book.dimensions);//int_
     for ( ; k < step; ++k) {
@@ -1600,8 +1600,9 @@ function residue_decode(f, book, target, offset, n, rtype) {
       }
     }
   } else {
+    var decode = codebook_decode; //this will be often called, maybe it will be faster this way
     while (k < n) {
-      if (!codebook_decode(f, book, target, offset, n-k)) {
+      if (!decode(f, book, target, offset, n-k)) {
         return false;
       }
       k += book.dimensions;
@@ -1621,11 +1622,7 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
   var n_read = r.end - r.begin;//int_
   var part_read = parseInt(n_read / r.part_size,10);//int_
   var temp_alloc_point = f.temp_offset;//int_
-//#ifndef STB_VORBIS_DIVIDES_IN_RESIDUE
   var part_classdata = Arr_new(f.channels, Array);//uint8 ***part_classdata = (uint8 ***) temp_block_array(f,f->channels, part_read * sizeof(**part_classdata));
-//#else
-//int **classifications = (int **) temp_block_array(f,f->channels, part_read * sizeof(**classifications));
-//#endif
 
   stb_prof(2);
   for (i = 0; i < ch; ++i) {
@@ -1820,8 +1817,6 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
   }
   stb_prof(9);
 
-  // console.log('here')
-  var t1 = performance.now();
   var b, c, n, target, offset, temp;
   for (pass=0; pass < 8; ++pass) {
     var pcount = 0, class_set = 0;//int_
@@ -1867,14 +1862,11 @@ function decode_residue(f, residue_buffers, ch, n, rn, do_not_decode) {
 //    #endif
     }
   }
-  var dt = performance.now()-t1;
-  sum2 += dt;
 
 //done:
   stb_prof(0);
   f.temp_offset = temp_alloc_point;
 }
-var sum2 = 0;
 
 // the following were split out into separate functions while optimizing;
 // they could be pushed back up but eh. __forceinline showed no change;
@@ -2107,15 +2099,16 @@ function imdct_step3_inner_s_loop_ld654(n, e, i_off, A, base_n)
    }
 }
 
-var inverse_mdct_buf = new Float32Array(1024);
+// var inverse_mdct_buf = new Float32Array(2048);
 //2650
 function inverse_mdct(buffer, n, f, blocktype)
 {
-  var t1 = performance.now();
+
    var n2 = n >>> 1, n4 = n >>> 2, n8 = n >>> 3, l;//int_
    var n3_4 = n - n4, ld;//int_
    // @OPTIMIZE: reduce register pressure by using fewer variables?
    var save_point = f.temp_offset;//int_
+
    var buf2 = Array(n2);
    // var buf2 = inverse_mdct_buf.subarray(0, n2);
    // var buf2 = new Float32Array(n2);//(float *) temp_alloc(f, n2 * sizeof(*buf2));
@@ -2431,11 +2424,7 @@ function inverse_mdct(buffer, n, f, blocktype)
    }
 
    f.temp_offset = save_point;
-   var dt = performance.now()-t1;
-   sum += dt;
-   // console.log(dt);
 }
-var sum = 0;
 
 //3079
 function get_window(f, len) {
@@ -2485,22 +2474,21 @@ function do_floor(f, map, i, n, target, finalY, step2_flag) {
 
 //3126
 function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_right_end, mode) {
-  var m = new Mode();//*
-  var i = int_, n = int_, prev = int_, next = int_, window_center = int_;
+  var n, prev, next, window_center;
   f.channel_buffer_start = f.channel_buffer_end = 0;
 
   var goto_retry = true;//retry:
   while (goto_retry) {
     goto_retry = false;
-    if (f.eof) return false;
-    if (!maybe_start_packet(f))
+    if (f.eof || !maybe_start_packet(f)) {
       return false;
+    }
     // check packet type
     if (get_bits(f, 1) !== 0) {
       if (f.push_mode) {
         return error(f,VORBIS_bad_packet_type);
       }
-      while (EOP !== get8_packet(f));
+      while (EOP !== get8_packet(f)) {};
       goto_retry = true;
     }
   }
@@ -2509,11 +2497,12 @@ function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_rig
   //   assert(f.alloc.alloc_buffer_length_in_bytes === f.temp_offset);
   // }
 
-  i = get_bits(f, ilog(f.mode_count-1));
-  if (i === EOP) return false;
-  if (i >= f.mode_count) return false;
+  var i = get_bits(f, ilog(f.mode_count-1));
+  if (i === EOP || i >= f.mode_count) {
+    return false;
+  }
   mode[0] = i;//*
-  m = f.mode_config[ + i];
+  var m = f.mode_config[i];
   if (m.blockflag) {
     n = f.blocksize_1;
     prev = get_bits(f,1);
@@ -2543,22 +2532,25 @@ function vorbis_decode_initial(f, p_left_start, p_left_end, p_right_start, p_rig
   return true;
 }
 
-// var RANGE_LIST = Int32Array.of(256, 128, 86, 64);//static int_
-var RANGE_LIST = [256, 128, 86, 64];//static int_
-var zero_channel = Array(256);//int_
-var really_zero_channel = Array(256);
-var step2_flag = Array(256);//uint8
-var do_not_decode = Array(256);//uint8
+// var RANGE_LIST = Int32Array.of(256, 128, 86, 64);
+var RANGE_LIST = [256, 128, 86, 64];
+var _zero_channel = Array(256);
+var _really_zero_channel = Array(256);
+var _step2_flag = Array(256);
+var _do_not_decode = Array(256);
+
 //3181
 function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start, right_end, p_left) {
-  var i = int_, j = int_, k = int_;
+  var i, j, k;
   // var zero_channel = new Int32Array(256);//int_
   // var really_zero_channel = new Int32Array(256);//int_
   // var zero_channel = Array(256);//int_
   // var really_zero_channel = Array(256);
+  var zero_channel = _zero_channel;
+  var really_zero_channel = _really_zero_channel;
 
 // WINDOWING
-
+// console.log('vorbis_decode_packet_rest')
   var n = f.blocksize[m.blockflag];//int_
   var window_center = n >>> 1;//int_
 
@@ -2579,6 +2571,7 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
       if (get_bits(f, 1)) {
         // var step2_flag = new Uint8Array(256);//uint8
         // var step2_flag = Array(256);//uint8
+        step2_flag = _step2_flag;
         var range = RANGE_LIST[g.floor1_multiplier-1];//int_
         var offset = 2;
         var finalY = f.finalY[i];
@@ -2662,7 +2655,6 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
 
   // re-enable coupled channels if necessary
   memcpy(really_zero_channel, 0, zero_channel, 0, f.channels);//sizeof(really_zero_channel[0]) * 
-  // really_zero_channel.set(zero_channel, 0, f.channels);
   for (i = 0; i < map.coupling_steps; ++i) {
     if (!zero_channel[map.chan[i].magnitude] || !zero_channel[map.chan[i].angle]) {
       zero_channel[map.chan[i].magnitude] = zero_channel[map.chan[i].angle] = false;
@@ -2670,6 +2662,7 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
   }
 // RESIDUE DECODE
 
+  var do_not_decode = _do_not_decode;
   for (i = 0; i < map.submaps; ++i) {
     var residue_buffers = Array(STB_VORBIS_MAX_CHANNELS);//float *
     var r = int_, t = int_;
@@ -2703,8 +2696,8 @@ function vorbis_decode_packet_rest(f, len, m, left_start, left_end, right_start,
     var n2 = n >>> 1;//int_
     var m_ = f.channel_buffers[map.chan[i].magnitude];//float_ *
     var a_ = f.channel_buffers[map.chan[i].angle];//float_ *
+    var a2, m2;
     for (j = 0; j < n2; ++j) {
-      var a2 = float_, m2 = float_;
       if (m_[j] > 0) {
         if (a_[j] > 0) {
           m2 = m_[j], a2 = m_[j] - a_[j];
@@ -3524,10 +3517,6 @@ function vorbis_init(p, z) {
   //#endif
 }
 
-//4200
-function vorbis_alloc(f) {
-  return new stb_vorbis();//(stb_vorbis *) setup_malloc(f, sizeof(*p));//stb_vorbis *
-}
 
 //4411
 function stb_vorbis_get_file_offset(f) {
@@ -3540,7 +3529,7 @@ function stb_vorbis_get_file_offset(f) {
     return f.stream - f.stream_start;
   }
   //#ifndef STB_VORBIS_NO_STDIO
-  return ftell(f.f) - f.f_start;
+  return f.f._ptr_off - f.f_start;
   //#endif
 }
 
@@ -3551,11 +3540,11 @@ function stb_vorbis_open_file_section(file, close_on_free, error, alloc, length)
   var p = new stb_vorbis();
   vorbis_init(p, alloc);
   p.f = file;
-  p.f_start = ftell(file);
+  p.f_start = file._ptr_off;
   p.stream_len   = length;
   p.close_on_free = close_on_free;
   if (start_decoder(p)) {
-    var f = vorbis_alloc(p);
+    var f = new stb_vorbis();
     if (f) {
       f = p;//* = 
       vorbis_pump_first_frame(f);
@@ -3570,10 +3559,7 @@ function stb_vorbis_open_file_section(file, close_on_free, error, alloc, length)
 //4980
 function stb_vorbis_open_file(file, close_on_free, error, alloc) {
   var len = int_, start = int_;//unsigned
-  //start = ftell(file);
-  //fseek(file, 0, SEEK_END);
-  len = file._ptr.length;//ftell(file) - start;
-  //fseek(file, start, SEEK_SET);
+  len = file._ptr.length;
   return stb_vorbis_open_file_section(file, close_on_free, error, alloc, len);
 }
 
@@ -3588,7 +3574,6 @@ function stb_vorbis_open_filename(filename, error, alloc) {
   }
   return null;
 }
-//#endif // STB_VORBIS_NO_STDIO
 
 
 //4935
@@ -3649,10 +3634,6 @@ function stb_vorbis_decode_filename(filename) {
   }
 
   v.data = data;
-  // console.log('Inverse ... '+sum);
-  // console.log('Decode ... '+sum2);
-  sum = 0;
-  sum2 = 0;
   
   // console.log('size: '+v.samples_output);
   return v;
