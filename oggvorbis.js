@@ -11,7 +11,10 @@
 (function() {
 
 function error (f, err) {
-  throw 'OGG Vorbis decode error: '+err;
+  throw {
+    msg: 'OGG Vorbis decode error: '+err,
+    code: err
+  };
 }
 
 var buffer_time;
@@ -163,7 +166,8 @@ function oggaudiobuffer(filename, context) {
     var offset = 0;
     var len = v.data[ch].length;
     for (var i = 0; i < len; i++) {
-      audiobuffer.copyToChannel(v.data[ch][i], ch, offset);
+      // audiobuffer.copyToChannel(v.data[ch][i], ch, offset);
+      audiobuffer.getChannelData(ch).set(v.data[ch][i], offset);
       offset += v.data[ch][i].length;
     }
     // data[ch].forEach(function(chunk) {
@@ -301,10 +305,10 @@ var Codebook = function()
 //  #else
 //   int32  fast_huffman[FAST_HUFFMAN_TABLE_SIZE];
 //  #endif
-  this.sorted_codewords = uint32;//*
-  this.sorted_values = int_;//*
+  this.sorted_codewords = 0;//*
+  this.sorted_values = 0;//*
   this.sorted_values_off = 0;//*
-  this.sorted_entries = int_;
+  this.sorted_entries = 0;
 };
 
 //616
@@ -789,39 +793,41 @@ function compute_sorted_huffman(c, lengths, values)
 // only run while parsing the header (3 times)
 function vorbis_validate(data) {
   var vorbis = new Array( 118, 111, 114, 98, 105, 115 );//new Array( 'v', 'o', 'r', 'b', 'i', 's' );//static uint8
-  return memcmp(data, vorbis, 6) == 0;
+  return memcmp(data, vorbis, 6) === 0;
 }
 
 // called from setup only, once per code book
 // (formula implied by specification)
 //1151
-function lookup1_values(entries, dim)
-{
-   var r = Math.floor(Math.exp(Math.log(entries) / dim));//int_ = (int_) (float_) (float_) 
-   if (Math.floor(Math.pow(r+1, dim)) <= entries)   //(int_) (float_)  // (int) cast for MinGW warning;
-      ++r;                                              // floor() to avoid _ftol() when non-CRT
-   // assert(Math.pow( r+1, dim) > entries);//(float_)
-   // assert(Math.floor(Math.pow(r, dim)) <= entries); //(int_) (float)  // (int),floor() as above
-   return r;
+function lookup1_values(entries, dim) {
+  var r = Math.floor(Math.exp(Math.log(entries) / dim));//int_ = (int_) (float_) (float_)
+  if (Math.floor(Math.pow(r+1, dim)) <= entries) {  //(int_) (float_)  // (int) cast for MinGW warning;
+    ++r;                                              // floor() to avoid _ftol() when non-CRT
+  }
+  // assert(Math.pow( r+1, dim) > entries);//(float_)
+  // assert(Math.floor(Math.pow(r, dim)) <= entries); //(int_) (float)  // (int),floor() as above
+  return r;
 }
 
 // called twice per file
 //1162
-function compute_twiddle_factors(n, A, B, C)
-{
-   var n4 = n >>> 2, n8 = n >>> 3;//int_
-   var k=int_,k2=int_;
+function compute_twiddle_factors(n, A, B, C) {
+  var n4 = n >>> 2, n8 = n >>> 3;
+  var k = 0, k2 = 0, tmp;
 
-   for (k=k2=0; k < n4; ++k,k2+=2) {
-      A[k2  ] =  Math.cos(4*k*M_PI/n);//(float_) 
-      A[k2+1] = -Math.sin(4*k*M_PI/n);//(float_) 
-      B[k2  ] =  Math.cos((k2+1)*M_PI/n/2) * 0.5;//f //(float_) 
-      B[k2+1] =  Math.sin((k2+1)*M_PI/n/2) * 0.5;//f //(float_) 
-   }
-   for (k=k2=0; k < n8; ++k,k2+=2) {
-      C[k2  ] =  Math.cos(2*(k2+1)*M_PI/n);//(float_) 
-      C[k2+1] = -Math.sin(2*(k2+1)*M_PI/n);//(float_) 
-   }
+  for (k = k2 = 0; k < n4; ++k, k2+=2) {
+    tmp = 4*k*M_PI/n;
+    A[k2  ] =  Math.cos(tmp);
+    A[k2+1] = -Math.sin(tmp);
+    tmp = (k2+1)*M_PI/n/2;
+    B[k2  ] =  Math.cos(tmp) * 0.5;
+    B[k2+1] =  Math.sin(tmp) * 0.5;
+  }
+  for (k = k2 = 0; k < n8; ++k, k2+=2) {
+    tmp = 2*(k2+1)*M_PI/n;
+    C[k2  ] =  Math.cos(tmp);
+    C[k2+1] = -Math.sin(tmp);
+  }
 }
 
 //1179
@@ -968,6 +974,7 @@ function start_page_no_capturepattern(f) {
   // page_segments
   f.segment_count = get8(f);
   if (!getn(f, f.segments, f.segment_count)) {
+    // return false;
     return error(f, VORBIS_unexpected_eof);
   }
   // assume we _don't_ know any the sample position of any segments
@@ -3607,35 +3614,34 @@ function stb_vorbis_get_frame(f, num_c, buffer, buffer_off, num_samples) {
 //5245
 //#ifndef STB_VORBIS_NO_STDIO
 function stb_vorbis_decode_filename(filename) {
-  var data_len = int_, offset = int_, total = int_, limit = int_, error = [int_];
+  var data_len = 0, error = [0];
   var v = stb_vorbis_open_filename(filename, error, null);//stb_vorbis *
-  if (v == null) return -1;
+  if (v == null) {
+    return -1;
+  }
 
-  //var buffer_time = 4; //seconds
-  limit = v.channels * 4096;
-
-  offset = data_len = 0;
-  total = limit;
   var data = Arr_new(v.channels, Array);
-
+  var n;
   while (true) {
     // console.log('stb_vorbis_get_frame')
-    // if (offset > 200000) break;
-    var n = stb_vorbis_get_frame(v, v.channels, data, offset, total-offset);
-    if (n === 0) break;
-
-    data_len += n;
-    offset += n * v.channels*2;
-    if (data_len > v.sample_rate*buffer_time) break;
-
-    if (offset + limit > total) {
-      total *= 2*2;
+    // if (data_len > 120000) break;
+    try {
+      n = stb_vorbis_get_frame_float(v, null, data);
+    } catch (ex) {
+      if (ex.code === VORBIS_unexpected_eof) {
+        console.log('VORBIS: Unexpected EOF');
+      } else {
+        throw ex;
+      }
+      break;
     }
+    if (n === 0) {
+      break;
+    }
+    data_len += n;
   }
 
   v.data = data;
-  
-  // console.log('size: '+v.samples_output);
   return v;
 }
 //#endif // NO_STDIO
